@@ -1,0 +1,16 @@
+# Render.com Blueprint — one-click deploy for the Ride Egypt backend.
+# In Render: New + → Blueprint → connect the repo that contains this /backend folder.
+services:
+  - type: web
+    name: rideegypt-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true   # Render generates a strong secret automatically
+      - key: DEV_MODE
+        value: "true"          # keep OTP auto-fill (no SMS bill). Set "false" after adding Twilio.
