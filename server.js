@@ -1,11 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 const db = require('./db');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+// Serve the marketing site (/), rider app (/app) and ops dashboard (/admin)
+app.use(express.static(path.join(__dirname, 'public')));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'rideegypt-dev-secret-change-in-prod';
 const PORT = process.env.PORT || 4000;
@@ -305,12 +308,9 @@ function lerp(a, b, t) {
   return a + (b - a) * Math.min(1, Math.max(0, t));
 }
 
-app.get('/api/rides/:id/track', auth, (req, res) => {
-  let ride = db.findRide(req.params.id, req.userId);
-  if (!ride) return res.status(404).json({error: 'Ride not found'});
-  if (ride.status === 'cancelled') {
-    return res.json({ride: rideView(ride), tracking: null});
-  }
+// Pure computation of a ride's live tracking state — shared by the rider
+// track endpoint and the admin live-fleet endpoint.
+function computeTracking(ride) {
   const from = ride.fromCoords || {lat: 25.3208, lng: 51.531};
   const to = ride.toCoords || {lat: 25.2609, lng: 51.6138};
   // Scheduled rides start their timeline at the scheduled time, not booking time
@@ -347,25 +347,34 @@ app.get('/api/rides/:id/track', auth, (req, res) => {
     etaMinutes = Math.ceil(PICKUP_AT / 60);
   }
 
-  // Persist status transitions so ride history stays truthful
-  if (status !== ride.status) {
-    const patch = {status};
-    if (status === 'completed') patch.completedAt = new Date().toISOString();
-    ride = db.updateRide(ride.id, req.userId, patch);
-  }
+  return {
+    status,
+    statusAr: STATUS_AR[status],
+    driverLocation,
+    pickup: from,
+    dropoff: to,
+    progress: Math.round(progress * 100) / 100,
+    etaMinutes,
+  };
+}
 
-  res.json({
-    ride: rideView(ride),
-    tracking: {
-      status,
-      statusAr: STATUS_AR[status],
-      driverLocation,
-      pickup: from,
-      dropoff: to,
-      progress: Math.round(progress * 100) / 100,
-      etaMinutes,
-    },
-  });
+// Persist a computed status transition so ride history stays truthful
+function persistTransition(ride, tracking) {
+  if (tracking.status === ride.status) return ride;
+  const patch = {status: tracking.status};
+  if (tracking.status === 'completed') patch.completedAt = new Date().toISOString();
+  return db.updateRide(ride.id, ride.userId, patch);
+}
+
+app.get('/api/rides/:id/track', auth, (req, res) => {
+  let ride = db.findRide(req.params.id, req.userId);
+  if (!ride) return res.status(404).json({error: 'Ride not found'});
+  if (ride.status === 'cancelled') {
+    return res.json({ride: rideView(ride), tracking: null});
+  }
+  const tracking = computeTracking(ride);
+  ride = persistTransition(ride, tracking);
+  res.json({ride: rideView(ride), tracking});
 });
 
 app.post('/api/rides/:id/cancel', auth, (req, res) => {
@@ -458,6 +467,92 @@ app.post('/api/promo/redeem', auth, (req, res) => {
   db.updateUser(req.userId, {walletBalance: newBalance});
   db.addTransaction({userId: req.userId, icon: 'gift', title: promo.title, amount: promo.credit});
   res.json({credit: promo.credit, balance: newBalance});
+});
+
+// ---- Admin API (ops dashboard) ----
+// Protected by a shared key. Set ADMIN_KEY in production.
+const ADMIN_KEY = process.env.ADMIN_KEY || 'rahal-admin-dev';
+
+function adminAuth(req, res, next) {
+  const key = req.headers['x-admin-key'] || req.query.key;
+  if (key !== ADMIN_KEY) return res.status(401).json({error: 'Invalid admin key'});
+  next();
+}
+
+app.post('/api/admin/login', (req, res) => {
+  if ((req.body.key || '') !== ADMIN_KEY) {
+    return res.status(401).json({error: 'Invalid admin key'});
+  }
+  res.json({ok: true});
+});
+
+app.get('/api/admin/stats', adminAuth, (req, res) => {
+  const rides = db.data.rides;
+  const byStatus = {};
+  for (const r of rides) byStatus[r.status] = (byStatus[r.status] || 0) + 1;
+  const revenue = rides.filter(r => r.status === 'completed').reduce((s, r) => s + (r.price || 0), 0);
+  const walletTotal = db.data.users.reduce((s, u) => s + (u.walletBalance || 0), 0);
+  // Rides per day, last 7 days
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    const key = d.toISOString().slice(0, 10);
+    days.push({
+      date: key,
+      rides: rides.filter(r => (r.createdAt || '').slice(0, 10) === key).length,
+      revenue: rides.filter(r => r.status === 'completed' && (r.createdAt || '').slice(0, 10) === key)
+        .reduce((s, r) => s + (r.price || 0), 0),
+    });
+  }
+  const ratings = rides.filter(r => r.rating).map(r => r.rating);
+  res.json({
+    users: db.data.users.length,
+    ridesTotal: rides.length,
+    ridesByStatus: byStatus,
+    activeRides: rides.filter(r => ['matched', 'arriving', 'in_progress'].includes(r.status)).length,
+    scheduledRides: byStatus.scheduled || 0,
+    revenue,
+    walletTotal,
+    avgRating: ratings.length ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length * 100) / 100 : null,
+    promoRedemptions: db.data.promoRedemptions.length,
+    ridesByDay: days,
+    currency: 'QAR',
+  });
+});
+
+app.get('/api/admin/rides', adminAuth, (req, res) => {
+  const limit = Math.min(200, Number(req.query.limit) || 50);
+  const rides = db.data.rides.slice(0, limit).map(r => {
+    const u = db.findUserById(r.userId);
+    return {...rideView(r), riderPhone: u ? u.phone : null, riderName: u ? u.name : null};
+  });
+  res.json({rides});
+});
+
+app.get('/api/admin/users', adminAuth, (req, res) => {
+  res.json({users: db.data.users.map(publicUser)});
+});
+
+// Live fleet: every ride currently on the road, with computed positions —
+// powers the dashboard's real-time map.
+app.get('/api/admin/live', adminAuth, (req, res) => {
+  const active = [];
+  for (let ride of db.data.rides) {
+    if (['completed', 'cancelled'].includes(ride.status)) continue;
+    const tracking = computeTracking(ride);
+    ride = persistTransition(ride, tracking) || ride;
+    if (['completed', 'cancelled'].includes(tracking.status)) continue;
+    active.push({
+      rideId: ride.id,
+      type: ride.type,
+      from: ride.from,
+      to: ride.to,
+      price: ride.price,
+      driver: ride.driver,
+      ...tracking,
+    });
+  }
+  res.json({fleet: active, count: active.length});
 });
 
 app.listen(PORT, '0.0.0.0', () => {
