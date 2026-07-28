@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rahal Go — Operations</title>
+<style>
+:root{
+  --bg:#070B14;
+  --bg2:#0A1020;
+  --maroon:#8A1538;
+  --maroon-bright:#C42153;
+  --gold:#D4AF6A;
+  --aqua:#00E5C7;
+  --red:#FF5470;
+  --ink:#E8EDF6;
+  --ink-dim:#8A94A8;
+  --ink-faint:#4A5468;
+  --glass:rgba(18,26,44,.55);
+  --glass-border:rgba(140,170,220,.14);
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:14px;
+  overflow-x:hidden;
+  min-height:100vh;
+  background-image:
+    radial-gradient(1200px 600px at 80% -10%, rgba(138,21,56,.18), transparent 60%),
+    radial-gradient(900px 500px at 8% 110%, rgba(0,229,199,.07), transparent 60%),
+    radial-gradient(700px 400px at 40% 40%, rgba(212,175,106,.04), transparent 60%);
+  background-attachment:fixed;
+}
+/* subtle CRT scan lines over everything */
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:9990;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px);
+  mix-blend-mode:overlay;
+}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.hidden{display:none!important}
+
+/* ---------- LOGIN GATE ---------- */
+#gate{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  z-index:100;transition:opacity .6s ease, transform .6s ease, filter .6s ease;
+}
+#gate.unlocking{opacity:0;transform:scale(1.06);filter:blur(8px);pointer-events:none}
+.gate-panel{
+  width:min(420px,92vw);padding:42px 38px 34px;text-align:center;
+  background:var(--glass);border:1px solid var(--glass-border);border-radius:18px;
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  box-shadow:0 0 0 1px rgba(0,229,199,.05), 0 30px 80px rgba(0,0,0,.6), 0 0 60px rgba(138,21,56,.25) inset;
+  position:relative;overflow:hidden;
+}
+.gate-panel::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,.05) 45%, transparent 60%);
+  animation:sheen 6s linear infinite;
+}
+@keyframes sheen{0%{transform:translateX(-100%)}60%,100%{transform:translateX(100%)}}
+.radar{
+  width:96px;height:96px;margin:0 auto 20px;border-radius:50%;position:relative;
+  border:1px solid rgba(0,229,199,.35);
+  background:
+    radial-gradient(circle, rgba(0,229,199,.10) 0 2px, transparent 3px) center/100% 100%,
+    repeating-radial-gradient(circle at center, transparent 0 22px, rgba(0,229,199,.14) 22px 23px, transparent 23px 46px),
+    radial-gradient(circle at center, rgba(0,229,199,.08), rgba(7,11,20,.9) 75%);
+  box-shadow:0 0 24px rgba(0,229,199,.25), inset 0 0 20px rgba(0,229,199,.08);
+}
+.radar::before{content:"";position:absolute;left:50%;top:0;width:1px;height:100%;background:rgba(0,229,199,.15)}
+.radar::after{content:"";position:absolute;top:50%;left:0;height:1px;width:100%;background:rgba(0,229,199,.15)}
+.radar .sweep{
+  position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from 0deg, rgba(0,229,199,.55), rgba(0,229,199,.12) 60deg, transparent 90deg);
+  animation:spin 3s linear infinite;
+  -webkit-mask:radial-gradient(circle, black 0 47px, transparent 48px);
+  mask:radial-gradient(circle, black 0 47px, transparent 48px);
+}
+.radar .blip{
+  position:absolute;width:6px;height:6px;border-radius:50%;background:var(--gold);
+  box-shadow:0 0 8px var(--gold);animation:blip 3s ease-in-out infinite;
+}
+.radar .blip.b1{top:26%;left:62%}
+.radar .blip.b2{top:64%;left:34%;animation-delay:1.5s;background:var(--aqua);box-shadow:0 0 8px var(--aqua)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blip{0%,20%{opacity:0}30%{opacity:1}70%{opacity:.5}100%{opacity:0}}
+.gate-panel h1{font-size:21px;letter-spacing:.14em;text-transform:uppercase;font-weight:600}
+.gate-panel h1 .go{color:var(--gold)}
+.gate-sub{color:var(--ink-dim);font-size:11px;letter-spacing:.32em;text-transform:uppercase;margin:6px 0 26px}
+.gate-panel input{
+  width:100%;padding:12px 14px;border-radius:10px;color:var(--ink);
+  background:rgba(7,11,20,.7);border:1px solid var(--glass-border);
+  font-family:var(--mono);font-size:14px;letter-spacing:.06em;text-align:center;outline:none;
+  transition:border-color .2s, box-shadow .2s;
+}
+.gate-panel input:focus{border-color:rgba(0,229,199,.5);box-shadow:0 0 0 3px rgba(0,229,199,.12)}
+.gate-note{color:var(--ink-faint);font-size:11px;margin-top:8px}
+.gate-note code{color:var(--gold);font-family:var(--mono)}
+.gate-err{color:var(--red);font-size:12px;margin-top:10px;min-height:16px}
+.btn-auth{
+  margin-top:16px;width:100%;padding:12px;border:none;border-radius:10px;cursor:pointer;
+  color:#fff;font-size:13px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
+  background:linear-gradient(135deg, var(--maroon), #5E0E27);
+  box-shadow:0 0 24px rgba(138,21,56,.5), inset 0 1px 0 rgba(255,255,255,.15);
+  transition:transform .15s, box-shadow .2s, filter .2s;
+}
+.btn-auth:hover{filter:brightness(1.2);box-shadow:0 0 34px rgba(196,33,83,.6)}
+.btn-auth:active{transform:scale(.98)}
+.btn-auth[disabled]{opacity:.6;cursor:wait}
+
+/* ---------- DASH SHELL ---------- */
+#dash{opacity:0;transition:opacity .7s ease .15s}
+#dash.on{opacity:1}
+.shell{max-width:1560px;margin:0 auto;padding:14px 18px 40px}
+
+.topbar{
+  display:flex;align-items:center;gap:16px;padding:10px 18px;margin-bottom:14px;
+  background:var(--glass);border:1px solid var(--glass-border);border-radius:14px;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  position:sticky;top:10px;z-index:50;
+}
+.wordmark{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.12em;font-size:15px;white-space:nowrap}
+.wordmark .dotlogo{
+  width:26px;height:26px;border-radius:50%;position:relative;flex:0 0 auto;
+  border:1px solid rgba(0,229,199,.4);background:radial-gradient(circle at center, rgba(0,229,199,.12), rgba(7,11,20,.9) 70%);
+  box-shadow:0 0 12px rgba(0,229,199,.3);overflow:hidden;
+}
+.wordmark .dotlogo::after{
+  content:"";position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from 0deg, rgba(0,229,199,.6), transparent 100deg);
+  animation:spin 3s linear infinite;
+}
+.wordmark .go{color:var(--gold)}
+.topbar .tag{font-size:10px;color:var(--ink-dim);letter-spacing:.3em;text-transform:uppercase;border-left:1px solid var(--glass-border);padding-left:14px;white-space:nowrap}
+.topbar .spacer{flex:1}
+#clock{font-family:var(--mono);font-size:15px;letter-spacing:.08em;color:var(--aqua);text-shadow:0 0 12px rgba(0,229,199,.4);white-space:nowrap}
+#clock small{color:var(--ink-dim);font-size:10px;letter-spacing:.2em;margin-left:6px;text-shadow:none}
+.conn{display:flex;align-items:center;gap:7px;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-dim);white-space:nowrap}
+.conn .dot{width:9px;height:9px;border-radius:50%;background:#2EE87E;box-shadow:0 0 10px #2EE87E;animation:pulse 2s ease-in-out infinite}
+.conn.off .dot{background:var(--red);box-shadow:0 0 10px var(--red);animation:pulse .8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.8)}}
+.tb-btn{
+  padding:8px 14px;border-radius:9px;border:1px solid var(--glass-border);cursor:pointer;
+  background:rgba(255,255,255,.03);color:var(--ink-dim);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  transition:all .2s;white-space:nowrap;
+}
+.tb-btn:hover{color:var(--aqua);border-color:rgba(0,229,199,.4);box-shadow:0 0 14px rgba(0,229,199,.15)}
+.tb-btn.logout:hover{color:var(--red);border-color:rgba(255,84,112,.45);box-shadow:0 0 14px rgba(255,84,112,.15)}
+.tb-btn.spin-once svg{animation:spin .7s ease}
+
+/* ---------- PANELS ---------- */
+.panel{
+  background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:0 14px 40px rgba(0,0,0,.35);
+  position:relative;
+}
+.panel-head{
+  display:flex;align-items:center;gap:10px;padding:13px 16px 11px;
+  border-bottom:1px solid var(--glass-border);
+}
+.panel-head h2{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-dim);font-weight:600}
+.panel-head .live-chip{
+  font-size:9px;letter-spacing:.2em;color:var(--aqua);border:1px solid rgba(0,229,199,.35);
+  border-radius:20px;padding:2px 9px;text-transform:uppercase;
+  animation:chip 2.4s ease-in-out infinite;font-family:var(--mono);
+}
+@keyframes chip{0%,100%{box-shadow:0 0 0 rgba(0,229,199,0)}50%{box-shadow:0 0 12px rgba(0,229,199,.35)}}
+
+/* ---------- KPI ROW ---------- */
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px}
+.kpi{
+  padding:14px 16px 12px;overflow:hidden;position:relative;border-radius:16px;
+  background:var(--glass);border:1px solid var(--glass-border);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+}
+.kpi .lbl{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:8px;white-space:nowrap}
+.kpi .val{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:26px;font-weight:600;line-height:1;white-space:nowrap}
+.kpi .unit{font-size:11px;color:var(--ink-dim);margin-left:4px;letter-spacing:.1em}
+.kpi canvas{position:absolute;right:8px;bottom:6px;opacity:.8}
+.kpi.gold .val{color:var(--gold);text-shadow:0 0 16px rgba(212,175,106,.35)}
+.kpi.aqua .val{color:var(--aqua);text-shadow:0 0 16px rgba(0,229,199,.35)}
+.kpi.maroon .val{color:#FF6E96;text-shadow:0 0 16px rgba(196,33,83,.4)}
+.kpi.plain .val{color:var(--ink)}
+.kpi.hot{border-color:rgba(0,229,199,.45);animation:kpiglow 2.2s ease-in-out infinite}
+@keyframes kpiglow{0%,100%{box-shadow:0 0 6px rgba(0,229,199,.12)}50%{box-shadow:0 0 26px rgba(0,229,199,.4)}}
+.stars{display:inline-block;position:relative;font-size:12px;letter-spacing:2px;color:rgba(212,175,106,.25);margin-top:6px;line-height:1}
+.stars .fill{position:absolute;left:0;top:0;overflow:hidden;white-space:nowrap;color:var(--gold);text-shadow:0 0 8px rgba(212,175,106,.6)}
+
+/* ---------- MAP + SIDEBAR ---------- */
+.oprow{display:grid;grid-template-columns:1fr 340px;gap:14px;margin-bottom:14px}
+.map-panel{overflow:hidden}
+#mapwrap{position:relative;height:480px}
+#map{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+#maptip{
+  position:absolute;z-index:20;pointer-events:none;display:none;min-width:190px;
+  background:rgba(9,14,26,.92);border:1px solid rgba(0,229,199,.35);border-radius:10px;
+  padding:10px 12px;font-size:11.5px;backdrop-filter:blur(8px);
+  box-shadow:0 8px 30px rgba(0,0,0,.6), 0 0 18px rgba(0,229,199,.12);
+}
+#maptip .t-driver{font-weight:700;font-size:12.5px;margin-bottom:2px}
+#maptip .t-route{color:var(--ink-dim);margin:3px 0}
+#maptip .t-row{display:flex;justify-content:space-between;gap:14px;font-family:var(--mono);margin-top:3px}
+#maptip .t-row b{color:var(--gold);font-weight:600}
+#maptip .t-type{color:var(--aqua);font-size:10px;letter-spacing:.2em;text-transform:uppercase}
+
+.fleet-panel{display:flex;flex-direction:column;min-height:0}
+#fleetlist{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:9px;max-height:483px}
+#fleetlist::-webkit-scrollbar{width:6px}
+#fleetlist::-webkit-scrollbar-thumb{background:rgba(140,170,220,.2);border-radius:3px}
+.fleet-card{
+  padding:11px 12px;border-radius:12px;border:1px solid var(--glass-border);
+  background:rgba(255,255,255,.025);transition:border-color .2s, box-shadow .2s, background .2s;cursor:default;
+}
+.fleet-card.hl{border-color:rgba(0,229,199,.55);box-shadow:0 0 18px rgba(0,229,199,.18);background:rgba(0,229,199,.05)}
+.fleet-card .fc-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.fleet-card .fc-driver{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fleet-card .fc-route{color:var(--ink-dim);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px}
+.fleet-card .fc-bot{display:flex;align-items:center;gap:8px}
+.prog{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
+.prog i{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,var(--maroon-bright),var(--aqua));box-shadow:0 0 8px rgba(0,229,199,.5);transition:width .8s ease}
+.fc-eta{font-family:var(--mono);font-size:10.5px;color:var(--aqua);white-space:nowrap}
+.fleet-empty{color:var(--ink-faint);text-align:center;padding:40px 10px;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+
+.pill{
+  display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:2.5px 9px;border-radius:20px;
+  letter-spacing:.05em;white-space:nowrap;font-weight:600;
+}
+.pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor}
+.pill.matched,.pill.arriving{color:var(--gold);border:1px solid rgba(212,175,106,.4);background:rgba(212,175,106,.08)}
+.pill.in_progress{color:var(--aqua);border:1px solid rgba(0,229,199,.4);background:rgba(0,229,199,.07)}
+.pill.completed{color:#2EE87E;border:1px solid rgba(46,232,126,.35);background:rgba(46,232,126,.07)}
+.pill.cancelled{color:var(--red);border:1px solid rgba(255,84,112,.4);background:rgba(255,84,112,.08)}
+.pill.scheduled{color:#8FB6FF;border:1px solid rgba(143,182,255,.4);background:rgba(143,182,255,.08)}
+
+/* ---------- CHARTS ---------- */
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.chart-body{padding:8px 10px 12px;height:230px;position:relative}
+.chart-body canvas{position:absolute;inset:8px 10px 12px;width:calc(100% - 20px);height:calc(100% - 20px)}
+
+/* ---------- TABLES ---------- */
+.tables .panel-head{gap:4px}
+.tabbtn{
+  padding:6px 16px;border-radius:8px;border:1px solid transparent;background:none;cursor:pointer;
+  color:var(--ink-dim);font-size:11px;letter-spacing:.22em;text-transform:uppercase;font-weight:600;
+  transition:all .2s;
+}
+.tabbtn.on{color:var(--gold);border-color:rgba(212,175,106,.4);background:rgba(212,175,106,.07);box-shadow:0 0 14px rgba(212,175,106,.12)}
+.search{
+  margin-left:auto;display:flex;align-items:center;gap:8px;
+  background:rgba(7,11,20,.6);border:1px solid var(--glass-border);border-radius:9px;padding:6px 12px;
+}
+.search input{background:none;border:none;outline:none;color:var(--ink);font-family:var(--mono);font-size:12px;width:190px}
+.search input::placeholder{color:var(--ink-faint)}
+.search svg{flex:0 0 auto}
+.tablewrap{overflow-x:auto;max-height:420px;overflow-y:auto}
+.tablewrap::-webkit-scrollbar{width:6px;height:6px}
+.tablewrap::-webkit-scrollbar-thumb{background:rgba(140,170,220,.2);border-radius:3px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{
+  position:sticky;top:0;z-index:2;text-align:left;padding:10px 14px;
+  font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-dim);font-weight:600;
+  background:rgba(10,16,32,.96);border-bottom:1px solid var(--glass-border);white-space:nowrap;
+}
+td{padding:9px 14px;border-bottom:1px solid rgba(140,170,220,.07);white-space:nowrap;color:var(--ink)}
+tr:hover td{background:rgba(0,229,199,.035)}
+td.dim{color:var(--ink-dim)}
+td .rt-arrow{color:var(--maroon-bright);margin:0 6px}
+.tstars{color:var(--gold);font-size:11px;letter-spacing:1px;text-shadow:0 0 6px rgba(212,175,106,.4)}
+.empty-row td{text-align:center;color:var(--ink-faint);padding:26px;letter-spacing:.2em;text-transform:uppercase;font-size:11px}
+
+/* ---------- TOASTS ---------- */
+#toasts{position:fixed;right:18px;bottom:18px;z-index:9999;display:flex;flex-direction:column;gap:9px;max-width:340px}
+.toast{
+  padding:11px 15px;border-radius:11px;font-size:12.5px;backdrop-filter:blur(10px);
+  background:rgba(12,18,32,.92);border:1px solid var(--glass-border);color:var(--ink);
+  box-shadow:0 10px 30px rgba(0,0,0,.5);animation:toastin .3s ease;
+}
+.toast.err{border-color:rgba(255,84,112,.5);box-shadow:0 0 20px rgba(255,84,112,.2), 0 10px 30px rgba(0,0,0,.5)}
+.toast.ok{border-color:rgba(0,229,199,.45);box-shadow:0 0 20px rgba(0,229,199,.15), 0 10px 30px rgba(0,0,0,.5)}
+.toast.out{opacity:0;transform:translateX(20px);transition:all .4s ease}
+@keyframes toastin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width:1240px){
+  .kpis{grid-template-columns:repeat(3,1fr)}
+  .oprow{grid-template-columns:1fr}
+  #fleetlist{max-height:260px}
+}
+@media (max-width:820px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .charts{grid-template-columns:1fr}
+  .topbar{flex-wrap:wrap;position:static}
+  .topbar .tag{display:none}
+  #mapwrap{height:380px}
+  .search input{width:110px}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN GATE ================= -->
+<div id="gate">
+  <div class="gate-panel">
+    <div class="radar" aria-hidden="true">
+      <div class="sweep"></div>
+      <div class="blip b1"></div>
+      <div class="blip b2"></div>
+    </div>
+    <h1>RAHAL <span class="go">GO</span></h1>
+    <div class="gate-sub">Operations Command</div>
+    <form id="loginForm" autocomplete="off">
+      <input id="keyInput" type="password" value="rahal-admin-dev" spellcheck="false" aria-label="Admin key">
+      <div class="gate-note">dev default: <code>rahal-admin-dev</code></div>
+      <div class="gate-err" id="gateErr"></div>
+      <button class="btn-auth" id="authBtn" type="submit">Authenticate</button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= DASHBOARD ================= -->
+<div id="dash" class="hidden">
+  <div class="shell">
+
+    <div class="topbar">
+      <div class="wordmark"><span class="dotlogo"></span>RAHAL <span class="go">GO</span></div>
+      <div class="tag">Mission Control</div>
+      <div class="spacer"></div>
+      <div id="clock">--:--:--<small>DOHA UTC+3</small></div>
+      <div class="conn" id="conn"><span class="dot"></span><span id="connLbl">Link Up</span></div>
+      <button class="tb-btn" id="refreshBtn" title="Refresh all data">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="vertical-align:-1px"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>
+        Sync
+      </button>
+      <button class="tb-btn logout" id="logoutBtn">Logout</button>
+    </div>
+
+    <div class="kpis" id="kpis">
+      <div class="kpi plain"><div class="lbl">Total Riders</div><div class="val num" id="k-users">0</div><canvas class="spark" width="100" height="26"></canvas></div>
+      <div class="kpi aqua" id="kpiActive"><div class="lbl">Active Rides</div><div class="val num" id="k-active">0</div><canvas class="spark" width="100" height="26"></canvas></div>
+      <div class="kpi gold"><div class="lbl">Revenue</div><div class="val num"><span id="k-rev">0</span><span class="unit">QAR</span></div><canvas class="spark" width="100" height="26"></canvas></div>
+      <div class="kpi gold"><div class="lbl">Avg Rating</div><div class="val num" id="k-rating">—</div><div class="stars">★★★★★<span class="fill" id="k-stars" style="width:0">★★★★★</span></div></div>
+      <div class="kpi plain"><div class="lbl">Wallet Float</div><div class="val num"><span id="k-wallet">0</span><span class="unit">QAR</span></div><canvas class="spark" width="100" height="26"></canvas></div>
+      <div class="kpi maroon"><div class="lbl">Promo Redemptions</div><div class="val num" id="k-promo">0</div><canvas class="spark" width="100" height="26"></canvas></div>
+    </div>
+
+    <div class="oprow">
+      <div class="panel map-panel">
+        <div class="panel-head">
+          <h2>Live Fleet — Doha</h2>
+          <span class="live-chip">● LIVE</span>
+          <span style="margin-left:auto" class="num" id="fleetCount" title="Units on the road">0 UNITS</span>
+        </div>
+        <div id="mapwrap">
+          <canvas id="map"></canvas>
+          <div id="maptip"></div>
+        </div>
+      </div>
+
+      <div class="panel fleet-panel">
+        <div class="panel-head"><h2>Fleet Ops</h2></div>
+        <div id="fleetlist"><div class="fleet-empty">Standby</div></div>
+      </div>
+    </div>
+
+    <div class="charts">
+      <div class="panel">
+        <div class="panel-head"><h2>Rides — Last 7 Days</h2></div>
+        <div class="chart-body"><canvas id="chartRides"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Revenue — Last 7 Days (QAR)</h2></div>
+        <div class="chart-body"><canvas id="chartRev"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel tables">
+      <div class="panel-head">
+        <button class="tabbtn on" id="tabRides">Rides</button>
+        <button class="tabbtn" id="tabRiders">Riders</button>
+        <div class="search">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4A5468" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          <input id="searchBox" placeholder="filter…" spellcheck="false">
+        </div>
+      </div>
+      <div class="tablewrap" id="ridesWrap">
+        <table>
+          <thead><tr><th>Time</th><th>Route</th><th>Rider</th><th>Driver</th><th>Type</th><th>Price</th><th>Status</th><th>Rating</th></tr></thead>
+          <tbody id="ridesBody"></tbody>
+        </table>
+      </div>
+      <div class="tablewrap hidden" id="ridersWrap">
+        <table>
+          <thead><tr><th>Phone</th><th>Name</th><th>City</th><th>Wallet</th><th>Joined</th></tr></thead>
+          <tbody id="ridersBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+"use strict";
+(function(){
+  /* ============================== helpers ============================== */
+  var $ = function(id){ return document.getElementById(id); };
+  var KEY_STORE = "rahalgo_admin_key";
+  var adminKey = null;
+
+  var timers = { slow:null, fast:null, clock:null, raf:null };
+  var running = false;
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function fmtQar(n){
+    n = Number(n) || 0;
+    return n.toLocaleString("en-US", {maximumFractionDigits: n >= 1000 ? 0 : 2});
+  }
+  function toast(msg, kind){
+    var box = $("toasts");
+    var el = document.createElement("div");
+    el.className = "toast " + (kind || "");
+    el.textContent = msg;
+    box.appendChild(el);
+    setTimeout(function(){ el.classList.add("out"); }, 3400);
+    setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 3900);
+  }
+
+  var online = true;
+  function setOnline(ok){
+    var conn = $("conn");
+    if (ok === online) return;
+    online = ok;
+    conn.classList.toggle("off", !ok);
+    $("connLbl").textContent = ok ? "Link Up" : "Link Down";
+    if (!ok) toast("Network link lost — retrying…", "err");
+    else toast("Link re-established", "ok");
+  }
+
+  function api(path){
+    return fetch(path, { headers: { "x-admin-key": adminKey } }).then(function(res){
+      if (res.status === 401) { var e = new Error("unauthorized"); e.auth = true; throw e; }
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      setOnline(true);
+      return res.json();
+    });
+  }
+  function handleErr(err){
+    if (err && err.auth) {
+      toast("Session invalidated — please re-authenticate", "err");
+      doLogout();
+    } else {
+      setOnline(false);
+    }
+  }
+
+  /* ============================== clock ============================== */
+  var clockFmt = null;
+  try {
+    clockFmt = new Intl.DateTimeFormat("en-GB", { timeZone:"Asia/Qatar", hour12:false, hour:"2-digit", minute:"2-digit", second:"2-digit" });
+  } catch(e) { clockFmt = null; }
+  function tickClock(){
+    var t;
+    if (clockFmt) t = clockFmt.format(new Date());
+    else {
+      var d = new Date(Date.now() + 3*3600*1000);
+      t = ("0"+d.getUTCHours()).slice(-2)+":"+("0"+d.getUTCMinutes()).slice(-2)+":"+("0"+d.getUTCSeconds()).slice(-2);
+    }
+    $("clock").firstChild.nodeValue = t;
+  }
+
+  /* ============================== count-up ============================== */
+  function countUp(el, to, decimals){
+    var from = parseFloat(el.dataset.v || "0") || 0;
+    to = Number(to) || 0;
+    el.dataset.v = to;
+    if (from === to) { el.textContent = decimals ? to.toFixed(decimals) : fmtQar(to); return; }
+    var t0 = performance.now(), dur = 650;
+    function step(now){
+      var p = Math.min(1, (now - t0) / dur);
+      p = 1 - Math.pow(1 - p, 3);
+      var v = from + (to - from) * p;
+      el.textContent = decimals ? v.toFixed(decimals) : fmtQar(Math.round(v * 100) / 100);
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* ============================== sparklines ============================== */
+  function drawSpark(cv, series, color){
+    var ctx = cv.getContext("2d");
+    var w = cv.width, h = cv.height;
+    ctx.clearRect(0, 0, w, h);
+    if (!series || !series.length) return;
+    var max = Math.max.apply(null, series), min = Math.min.apply(null, series);
+    if (max === min) max = min + 1;
+    ctx.beginPath();
+    for (var i = 0; i < series.length; i++) {
+      var x = i / (series.length - 1) * (w - 4) + 2;
+      var y = h - 3 - (series[i] - min) / (max - min) * (h - 7);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.4;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  function pseudoSeries(seed, n){
+    var out = [], v = 40 + (seed * 37) % 30;
+    for (var i = 0; i < n; i++) {
+      v += Math.sin(seed * 3.7 + i * 1.9) * 9 + Math.cos(seed + i * 0.8) * 5;
+      out.push(v);
+    }
+    return out;
+  }
+
+  /* ============================== stats / KPIs ============================== */
+  var lastStats = null;
+  function loadStats(){
+    return api("/api/admin/stats").then(function(s){
+      lastStats = s;
+      countUp($("k-users"), s.users);
+      countUp($("k-active"), s.activeRides);
+      countUp($("k-rev"), s.revenue);
+      countUp($("k-wallet"), s.walletTotal);
+      countUp($("k-promo"), s.promoRedemptions);
+      $("kpiActive").classList.toggle("hot", (s.activeRides || 0) > 0);
+
+      if (s.avgRating != null) {
+        countUp($("k-rating"), s.avgRating, 1);
+        $("k-stars").style.width = Math.max(0, Math.min(100, s.avgRating / 5 * 100)) + "%";
+      } else {
+        $("k-rating").textContent = "—";
+        delete $("k-rating").dataset.v;
+        $("k-stars").style.width = "0";
+      }
+
+      var days = (s.ridesByDay || []);
+      var rideSeries = days.map(function(d){ return d.rides; });
+      var revSeries = days.map(function(d){ return d.revenue; });
+      var sparks = document.querySelectorAll(".kpi .spark");
+      if (sparks.length >= 5) {
+        drawSpark(sparks[0], pseudoSeries(1, 12), "rgba(140,170,220,.7)");
+        drawSpark(sparks[1], rideSeries.length > 1 ? rideSeries : pseudoSeries(2, 12), "#00E5C7");
+        drawSpark(sparks[2], revSeries.length > 1 ? revSeries : pseudoSeries(3, 12), "#D4AF6A");
+        drawSpark(sparks[3], pseudoSeries(4, 12), "rgba(140,170,220,.7)");
+        drawSpark(sparks[4], pseudoSeries(5, 12), "#C42153");
+      }
+      renderCharts(days);
+    });
+  }
+
+  /* ============================== charts ============================== */
+  var chartDays = [];
+  var chartAnim = { start: 0 };
+  var lastDaysJson = "";
+
+  function sizeCanvas(cv){
+    var dpr = window.devicePixelRatio || 1;
+    var r = cv.getBoundingClientRect();
+    if (r.width < 4 || r.height < 4) return null;
+    var W = Math.round(r.width * dpr), H = Math.round(r.height * dpr);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    var ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx: ctx, w: r.width, h: r.height };
+  }
+  function dayLabel(dstr){
+    var d = new Date(dstr + "T12:00:00Z");
+    return isNaN(d) ? dstr : ["SUN","MON","TUE","WED","THU","FRI","SAT"][d.getUTCDay()];
+  }
+  function chartFrame(ctx, w, h, maxV, pad){
+    ctx.strokeStyle = "rgba(140,170,220,.10)";
+    ctx.fillStyle = "rgba(138,148,168,.55)";
+    ctx.font = "9px ui-monospace, Menlo, monospace";
+    ctx.lineWidth = 1;
+    ctx.textAlign = "right";
+    for (var g = 0; g <= 3; g++) {
+      var y = pad.t + (h - pad.t - pad.b) * (g / 3);
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+      var v = maxV * (1 - g / 3);
+      ctx.fillText(v >= 100 ? Math.round(v) : (Math.round(v * 10) / 10), pad.l - 6, y + 3);
+    }
+  }
+  function renderCharts(days, prog){
+    if (days) {
+      var j = JSON.stringify(days);
+      if (j === lastDaysJson) return; // unchanged — skip re-animation
+      lastDaysJson = j;
+      chartDays = days;
+    }
+    if (!chartDays.length) return;
+    if (prog === undefined) { chartAnim.start = performance.now(); prog = 0; }
+    drawBarChart(prog);
+    drawAreaChart(prog);
+    if (prog < 1) {
+      requestAnimationFrame(function(){
+        var p = Math.min(1, (performance.now() - chartAnim.start) / 750);
+        renderCharts(null, 1 - Math.pow(1 - p, 3) >= 0.999 ? 1 : 1 - Math.pow(1 - p, 3));
+      });
+    }
+  }
+  function drawBarChart(prog){
+    var s = sizeCanvas($("chartRides"));
+    if (!s) return;
+    var ctx = s.ctx, w = s.w, h = s.h;
+    var pad = { l: 34, r: 8, t: 14, b: 20 };
+    ctx.clearRect(0, 0, w, h);
+    var vals = chartDays.map(function(d){ return d.rides; });
+    var maxV = Math.max(1, Math.max.apply(null, vals));
+    chartFrame(ctx, w, h, maxV, pad);
+    var n = vals.length;
+    var slot = (w - pad.l - pad.r) / n;
+    var bw = Math.min(34, slot * 0.5);
+    for (var i = 0; i < n; i++) {
+      var x = pad.l + slot * i + (slot - bw) / 2;
+      var bh = (h - pad.t - pad.b) * (vals[i] / maxV) * prog;
+      var y = h - pad.b - bh;
+      var grad = ctx.createLinearGradient(0, y, 0, h - pad.b);
+      grad.addColorStop(0, "#C42153");
+      grad.addColorStop(1, "rgba(138,21,56,.35)");
+      ctx.shadowColor = "rgba(196,33,83,.6)";
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = grad;
+      if (bh > 0.5) {
+        ctx.beginPath();
+        var r = Math.min(4, bw / 2, bh);
+        ctx.moveTo(x, h - pad.b);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.arcTo(x + bw, y, x + bw, y + r, r);
+        ctx.lineTo(x + bw, h - pad.b);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+      // gold value label
+      ctx.fillStyle = "#D4AF6A";
+      ctx.font = "600 10px ui-monospace, Menlo, monospace";
+      ctx.textAlign = "center";
+      if (prog > 0.6 && vals[i] > 0) ctx.fillText(vals[i], x + bw / 2, y - 5);
+      // x label
+      ctx.fillStyle = "rgba(138,148,168,.6)";
+      ctx.font = "9px ui-monospace, Menlo, monospace";
+      ctx.fillText(dayLabel(chartDays[i].date), x + bw / 2, h - 6);
+    }
+  }
+  function drawAreaChart(prog){
+    var s = sizeCanvas($("chartRev"));
+    if (!s) return;
+    var ctx = s.ctx, w = s.w, h = s.h;
+    var pad = { l: 40, r: 10, t: 14, b: 20 };
+    ctx.clearRect(0, 0, w, h);
+    var vals = chartDays.map(function(d){ return d.revenue; });
+    var maxV = Math.max(1, Math.max.apply(null, vals));
+    chartFrame(ctx, w, h, maxV, pad);
+    var n = vals.length;
+    var pts = [];
+    for (var i = 0; i < n; i++) {
+      pts.push({
+        x: pad.l + (w - pad.l - pad.r) * (n === 1 ? 0.5 : i / (n - 1)),
+        y: h - pad.b - (h - pad.t - pad.b) * (vals[i] / maxV) * prog
+      });
+    }
+    // smooth path through points
+    function tracePath(){
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (var j = 0; j < n - 1; j++) {
+        var mx = (pts[j].x + pts[j + 1].x) / 2;
+        ctx.bezierCurveTo(mx, pts[j].y, mx, pts[j + 1].y, pts[j + 1].x, pts[j + 1].y);
+      }
+    }
+    // area fill
+    var grad = ctx.createLinearGradient(0, pad.t, 0, h - pad.b);
+    grad.addColorStop(0, "rgba(0,229,199,.32)");
+    grad.addColorStop(1, "rgba(0,229,199,.01)");
+    ctx.beginPath();
+    tracePath();
+    ctx.lineTo(pts[n - 1].x, h - pad.b);
+    ctx.lineTo(pts[0].x, h - pad.b);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+    // line
+    ctx.beginPath();
+    tracePath();
+    ctx.strokeStyle = "#00E5C7";
+    ctx.lineWidth = 2;
+    ctx.shadowColor = "rgba(0,229,199,.7)";
+    ctx.shadowBlur = 9;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // dots + x labels
+    for (var k = 0; k < n; k++) {
+      ctx.beginPath();
+      ctx.arc(pts[k].x, pts[k].y, 2.6, 0, Math.PI * 2);
+      ctx.fillStyle = "#00E5C7";
+      ctx.fill();
+      ctx.fillStyle = "rgba(138,148,168,.6)";
+      ctx.font = "9px ui-monospace, Menlo, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(dayLabel(chartDays[k].date), pts[k].x, h - 6);
+    }
+  }
+
+  /* ============================== tables ============================== */
+  var ridesData = [], usersData = [], searchTerm = "";
+  var timeFmt = null;
+  try {
+    timeFmt = new Intl.DateTimeFormat("en-GB", { timeZone:"Asia/Qatar", hour12:false, month:"short", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+  } catch(e) { timeFmt = null; }
+  function fmtTime(iso){
+    if (!iso) return "—";
+    var d = new Date(iso);
+    if (isNaN(d)) return "—";
+    return timeFmt ? timeFmt.format(d) : d.toISOString().slice(5, 16).replace("T", " ");
+  }
+  function starStr(r){
+    if (r == null || isNaN(r)) return '<span class="dim">—</span>';
+    var full = Math.round(r);
+    var out = "";
+    for (var i = 0; i < 5; i++) out += i < full ? "★" : "☆";
+    return '<span class="tstars" title="' + Number(r).toFixed(1) + '">' + out + "</span>";
+  }
+  function matches(hay){
+    if (!searchTerm) return true;
+    return hay.toLowerCase().indexOf(searchTerm) !== -1;
+  }
+  function renderRides(){
+    var body = $("ridesBody"), html = "";
+    for (var i = 0; i < ridesData.length; i++) {
+      var r = ridesData[i];
+      var hay = [r.from, r.to, r.riderPhone, r.riderName, r.driver, r.status, r.statusAr, r.type, r.id].join(" ");
+      if (!matches(hay)) continue;
+      html += "<tr>" +
+        '<td class="dim num">' + esc(fmtTime(r.createdAt)) + "</td>" +
+        "<td>" + esc(r.from || "—") + '<span class="rt-arrow">→</span>' + esc(r.to || "—") + "</td>" +
+        '<td class="num">' + esc(r.riderPhone || "—") + "</td>" +
+        "<td>" + esc(r.driver || "—") + "</td>" +
+        '<td class="dim">' + esc((r.type || "—").toUpperCase()) + "</td>" +
+        '<td class="num">' + fmtQar(r.price) + ' <span class="dim">QAR</span></td>' +
+        '<td><span class="pill ' + esc(r.status) + '">' + esc(r.statusAr || r.status) + "</span></td>" +
+        "<td>" + starStr(r.rating) + "</td>" +
+        "</tr>";
+    }
+    body.innerHTML = html || '<tr class="empty-row"><td colspan="8">No matching rides</td></tr>';
+  }
+  function renderRiders(){
+    var body = $("ridersBody"), html = "";
+    for (var i = 0; i < usersData.length; i++) {
+      var u = usersData[i];
+      if (u.role && u.role !== "rider") continue;
+      var hay = [u.phone, u.name, u.city, u.id].join(" ");
+      if (!matches(hay)) continue;
+      html += "<tr>" +
+        '<td class="num">' + esc(u.phone || "—") + "</td>" +
+        "<td>" + esc(u.name || "—") + "</td>" +
+        '<td class="dim">' + esc(u.city || "—") + "</td>" +
+        '<td class="num">' + fmtQar(u.walletBalance) + ' <span class="dim">QAR</span></td>' +
+        '<td class="dim num">' + esc(fmtTime(u.createdAt)) + "</td>" +
+        "</tr>";
+    }
+    body.innerHTML = html || '<tr class="empty-row"><td colspan="5">No matching riders</td></tr>';
+  }
+  function loadTables(){
+    return Promise.all([
+      api("/api/admin/rides?limit=50"),
+      api("/api/admin/users")
+    ]).then(function(res){
+      ridesData = (res[0] && res[0].rides) || [];
+      usersData = (res[1] && res[1].users) || [];
+      renderRides();
+      renderRiders();
+    });
+  }
+
+  /* ============================== LIVE MAP ============================== */
+  var BOUNDS = { lat0: 25.20, lat1: 25.38, lng0: 51.45, lng1: 51.65 };
+  var mapCv = null, mapCtx = null, mapW = 0, mapH = 0;
+  var units = {};          // rideId -> unit
+  var fleetOrder = [];     // rideIds in list order
+  var sweepAngle = 0;
+  var lastFrame = 0;
+  var hoverId = null;
+  var mouse = { x: -1, y: -1, inside: false };
+  var particles = [];
+
+  function proj(lat, lng){
+    return {
+      x: (lng - BOUNDS.lng0) / (BOUNDS.lng1 - BOUNDS.lng0) * mapW,
+      y: (1 - (lat - BOUNDS.lat0) / (BOUNDS.lat1 - BOUNDS.lat0)) * mapH
+    };
+  }
+
+  // stylized corniche / east coast (lat, lng)
+  var COAST = [
+    [25.380, 51.500], [25.372, 51.512], [25.362, 51.522], [25.352, 51.535],
+    [25.344, 51.552], [25.336, 51.560], [25.328, 51.552], [25.320, 51.542],
+    [25.312, 51.532], [25.302, 51.528], [25.292, 51.532], [25.286, 51.545],
+    [25.284, 51.560], [25.278, 51.575], [25.268, 51.588], [25.256, 51.605],
+    [25.244, 51.628], [25.232, 51.648], [25.220, 51.650]
+  ];
+  var DISTRICTS = [
+    { n: "WEST BAY",  lat: 25.321, lng: 51.520 },
+    { n: "THE PEARL", lat: 25.368, lng: 51.545 },
+    { n: "LUSAIL",    lat: 25.376, lng: 51.482 },
+    { n: "AIRPORT",   lat: 25.258, lng: 51.612 },
+    { n: "AL SADD",   lat: 25.282, lng: 51.492 }
+  ];
+
+  function sizeMap(){
+    var wrap = $("mapwrap");
+    var dpr = window.devicePixelRatio || 1;
+    var r = wrap.getBoundingClientRect();
+    mapW = r.width; mapH = r.height;
+    var W = Math.round(mapW * dpr), H = Math.round(mapH * dpr);
+    if (mapCv.width !== W || mapCv.height !== H) { mapCv.width = W; mapCv.height = H; }
+    mapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function loadFleet(){
+    return api("/api/admin/live").then(function(data){
+      var fleet = (data && data.fleet) || [];
+      var seen = {};
+      fleetOrder = [];
+      for (var i = 0; i < fleet.length; i++) {
+        var f = fleet[i];
+        seen[f.rideId] = true;
+        fleetOrder.push(f.rideId);
+        var loc = f.driverLocation || f.pickup;
+        var u = units[f.rideId];
+        if (!u) {
+          u = units[f.rideId] = {
+            dLat: loc.lat, dLng: loc.lng,   // displayed (smoothed)
+            trail: []
+          };
+        }
+        u.tLat = loc.lat; u.tLng = loc.lng; // target
+        u.info = f;
+      }
+      for (var id in units) if (!seen[id]) delete units[id];
+      $("fleetCount").textContent = fleet.length + (fleet.length === 1 ? " UNIT" : " UNITS");
+      renderFleetList(fleet);
+    });
+  }
+
+  function renderFleetList(fleet){
+    var box = $("fleetlist");
+    if (!fleet.length) {
+      box.innerHTML = '<div class="fleet-empty">No units on the road</div>';
+      return;
+    }
+    var html = "";
+    for (var i = 0; i < fleet.length; i++) {
+      var f = fleet[i];
+      html += '<div class="fleet-card' + (f.rideId === hoverId ? " hl" : "") + '" data-rid="' + esc(f.rideId) + '">' +
+        '<div class="fc-top"><span class="fc-driver">' + esc(f.driver || "Unassigned") + "</span>" +
+        '<span class="pill ' + esc(f.status) + '">' + esc(f.statusAr || f.status) + "</span></div>" +
+        '<div class="fc-route">' + esc(f.from) + " → " + esc(f.to) + "</div>" +
+        '<div class="fc-bot"><div class="prog"><i style="width:' + Math.round((f.progress || 0) * 100) + '%"></i></div>' +
+        '<span class="fc-eta">' + (f.etaMinutes != null ? "ETA " + f.etaMinutes + "m" : "—") + "</span></div>" +
+        "</div>";
+    }
+    box.innerHTML = html;
+  }
+
+  function unitColor(status){
+    return status === "in_progress" ? "#00E5C7" : "#D4AF6A";
+  }
+
+  function drawMapBase(){
+    var ctx = mapCtx;
+    // base
+    ctx.fillStyle = "#080D19";
+    ctx.fillRect(0, 0, mapW, mapH);
+    // grid
+    ctx.strokeStyle = "rgba(140,170,220,.05)";
+    ctx.lineWidth = 1;
+    var step = 44;
+    ctx.beginPath();
+    for (var x = step; x < mapW; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, mapH); }
+    for (var y = step; y < mapH; y += step) { ctx.moveTo(0, y); ctx.lineTo(mapW, y); }
+    ctx.stroke();
+
+    // sea (east of coastline) — build coast path, close along right edge
+    ctx.beginPath();
+    for (var i = 0; i < COAST.length; i++) {
+      var p = proj(COAST[i][0], COAST[i][1]);
+      if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+    var last = proj(COAST[COAST.length - 1][0], COAST[COAST.length - 1][1]);
+    var first = proj(COAST[0][0], COAST[0][1]);
+    ctx.lineTo(mapW + 40, last.y);
+    ctx.lineTo(mapW + 40, -40);
+    ctx.lineTo(first.x, -40);
+    ctx.closePath();
+    var seaGrad = ctx.createLinearGradient(mapW * 0.4, 0, mapW, 0);
+    seaGrad.addColorStop(0, "rgba(0,229,199,.03)");
+    seaGrad.addColorStop(1, "rgba(0,90,120,.10)");
+    ctx.fillStyle = seaGrad;
+    ctx.fill();
+
+    // glowing coastline stroke
+    ctx.beginPath();
+    for (var j = 0; j < COAST.length; j++) {
+      var q = proj(COAST[j][0], COAST[j][1]);
+      if (j === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+    }
+    ctx.strokeStyle = "rgba(0,229,199,.35)";
+    ctx.lineWidth = 1.4;
+    ctx.shadowColor = "rgba(0,229,199,.6)";
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // districts
+    ctx.font = "600 9px ui-monospace, Menlo, monospace";
+    ctx.textAlign = "center";
+    for (var d = 0; d < DISTRICTS.length; d++) {
+      var dp = proj(DISTRICTS[d].lat, DISTRICTS[d].lng);
+      ctx.fillStyle = "rgba(140,170,220,.28)";
+      ctx.fillText(DISTRICTS[d].n, dp.x, dp.y);
+      ctx.fillStyle = "rgba(140,170,220,.18)";
+      ctx.fillRect(dp.x - 1, dp.y + 4, 2, 2);
+    }
+  }
+
+  function drawSweep(dt){
+    sweepAngle = (sweepAngle + dt * 0.45) % (Math.PI * 2);
+    var ctx = mapCtx;
+    var cx = mapW / 2, cy = mapH / 2;
+    var R = Math.sqrt(cx * cx + cy * cy) + 10;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(sweepAngle);
+    if (ctx.createConicGradient) {
+      // bright leading edge at angle 0, tail fading backwards (negative angles)
+      var g = ctx.createConicGradient(0, 0, 0);
+      g.addColorStop(0, "rgba(0,229,199,.12)");
+      g.addColorStop(0.02, "rgba(0,229,199,0)");
+      g.addColorStop(0.85, "rgba(0,229,199,0)");
+      g.addColorStop(1, "rgba(0,229,199,.12)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, R, -0.9, 0.02);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // leading edge line
+    ctx.strokeStyle = "rgba(0,229,199,.22)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(R, 0);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawParticles(dt){
+    var ctx = mapCtx;
+    if (!particles.length) {
+      for (var i = 0; i < 42; i++) {
+        particles.push({
+          x: Math.random() * mapW, y: Math.random() * mapH,
+          vx: (Math.random() - 0.5) * 9, vy: (Math.random() - 0.5) * 9,
+          a: 0.08 + Math.random() * 0.22, r: 0.7 + Math.random() * 1.4
+        });
+      }
+    }
+    for (var j = 0; j < particles.length; j++) {
+      var p = particles[j];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.x < 0) p.x += mapW; if (p.x > mapW) p.x -= mapW;
+      if (p.y < 0) p.y += mapH; if (p.y > mapH) p.y -= mapH;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,229,199," + p.a + ")";
+      ctx.fill();
+    }
+    ctx.font = "600 13px ui-monospace, Menlo, monospace";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(138,148,168,.55)";
+    ctx.fillText("NO UNITS ON THE ROAD", mapW / 2, mapH / 2 - 4);
+    ctx.font = "9px ui-monospace, Menlo, monospace";
+    ctx.fillStyle = "rgba(138,148,168,.35)";
+    ctx.fillText("AWAITING DISPATCH", mapW / 2, mapH / 2 + 14);
+  }
+
+  function drawUnits(dt, now){
+    var ctx = mapCtx;
+    var nearest = null, nearestDist = 18;
+    for (var id in units) {
+      var u = units[id];
+      // smooth toward target
+      var k = Math.min(1, dt * 1.4);
+      u.dLat += (u.tLat - u.dLat) * k;
+      u.dLng += (u.tLng - u.dLng) * k;
+      var pos = proj(u.dLat, u.dLng);
+      var pu = proj(u.info.pickup.lat, u.info.pickup.lng);
+      var pd = proj(u.info.dropoff.lat, u.info.dropoff.lng);
+      var col = unitColor(u.info.status);
+      var isHover = id === hoverId;
+
+      // trail bookkeeping
+      var t = u.trail;
+      if (!t.length || Math.abs(t[t.length - 1].x - pos.x) + Math.abs(t[t.length - 1].y - pos.y) > 0.6) {
+        t.push({ x: pos.x, y: pos.y, t: now });
+      }
+      while (t.length && now - t[0].t > 2600) t.shift();
+
+      // route line pickup -> dropoff
+      ctx.setLineDash([5, 6]);
+      ctx.beginPath();
+      ctx.moveTo(pu.x, pu.y);
+      ctx.lineTo(pd.x, pd.y);
+      ctx.strokeStyle = isHover ? "rgba(212,175,106,.55)" : "rgba(212,175,106,.20)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // pickup / dropoff markers
+      ctx.beginPath(); ctx.arc(pu.x, pu.y, 3, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(212,175,106,.6)"; ctx.lineWidth = 1; ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(pd.x, pd.y - 4); ctx.lineTo(pd.x + 3.5, pd.y + 2.5); ctx.lineTo(pd.x - 3.5, pd.y + 2.5);
+      ctx.closePath();
+      ctx.strokeStyle = "rgba(0,229,199,.55)"; ctx.stroke();
+
+      // fading trail
+      for (var i = 1; i < t.length; i++) {
+        var age = (now - t[i].t) / 2600;
+        ctx.beginPath();
+        ctx.moveTo(t[i - 1].x, t[i - 1].y);
+        ctx.lineTo(t[i].x, t[i].y);
+        ctx.strokeStyle = col;
+        ctx.globalAlpha = (1 - age) * 0.35;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      // unit dot with glow + pulse ring
+      var pulse = 1 + 0.15 * Math.sin(now / 300 + pos.x);
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, (isHover ? 6 : 4.4) * pulse, 0, Math.PI * 2);
+      ctx.fillStyle = col;
+      ctx.shadowColor = col;
+      ctx.shadowBlur = isHover ? 22 : 14;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, 9 + 4 * Math.abs(Math.sin(now / 700 + pos.y)), 0, Math.PI * 2);
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = 0.22;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // hover hit-test
+      if (mouse.inside) {
+        var dx = mouse.x - pos.x, dy = mouse.y - pos.y;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < nearestDist) { nearestDist = dist; nearest = { id: id, x: pos.x, y: pos.y }; }
+      }
+    }
+    return nearest;
+  }
+
+  function updateTooltip(nearest){
+    var tip = $("maptip");
+    // map controls hover only while the cursor is over the canvas;
+    // otherwise the fleet sidebar owns hoverId.
+    var newHover = mouse.inside ? (nearest ? nearest.id : null) : hoverId;
+    if (nearest) {
+      var f = units[nearest.id].info;
+      tip.innerHTML =
+        '<div class="t-driver">' + esc(f.driver || "Unassigned") + "</div>" +
+        '<div class="t-type">' + esc(f.type || "") + " · " + esc(f.statusAr || f.status) + "</div>" +
+        '<div class="t-route">' + esc(f.from) + " → " + esc(f.to) + "</div>" +
+        '<div class="t-row"><span>ETA</span><b>' + (f.etaMinutes != null ? f.etaMinutes + " min" : "—") + "</b></div>" +
+        '<div class="t-row"><span>FARE</span><b>' + fmtQar(f.price) + " QAR</b></div>";
+      tip.style.display = "block";
+      var tx = nearest.x + 16, ty = nearest.y - 10;
+      if (tx + 210 > mapW) tx = nearest.x - 216;
+      if (ty + 110 > mapH) ty = mapH - 112;
+      if (ty < 4) ty = 4;
+      tip.style.left = tx + "px";
+      tip.style.top = ty + "px";
+    } else {
+      tip.style.display = "none";
+    }
+    if (newHover !== hoverId) {
+      hoverId = newHover;
+      syncListHighlight();
+    }
+  }
+
+  function syncListHighlight(){
+    var cards = document.querySelectorAll(".fleet-card");
+    for (var i = 0; i < cards.length; i++) {
+      cards[i].classList.toggle("hl", cards[i].getAttribute("data-rid") === hoverId);
+    }
+  }
+
+  function frame(now){
+    if (!running) return;
+    var dt = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 0.016;
+    lastFrame = now;
+    sizeMap();
+    drawMapBase();
+    var hasUnits = false;
+    for (var id in units) { hasUnits = true; break; }
+    var nearest = null;
+    if (hasUnits) nearest = drawUnits(dt, now);
+    else drawParticles(dt);
+    drawSweep(dt);
+    updateTooltip(nearest);
+    timers.raf = requestAnimationFrame(frame);
+  }
+
+  /* ============================== polling lifecycle ============================== */
+  function refreshSlow(){
+    Promise.all([loadStats(), loadTables()]).catch(handleErr);
+  }
+  function refreshFast(){
+    loadFleet().catch(handleErr);
+  }
+  function startPolling(){
+    if (running) return;
+    running = true;
+    lastFrame = 0;
+    refreshSlow();
+    refreshFast();
+    tickClock();
+    timers.slow = setInterval(refreshSlow, 15000);
+    timers.fast = setInterval(refreshFast, 3000);
+    timers.clock = setInterval(tickClock, 1000);
+    timers.raf = requestAnimationFrame(frame);
+  }
+  function stopPolling(){
+    running = false;
+    if (timers.slow) { clearInterval(timers.slow); timers.slow = null; }
+    if (timers.fast) { clearInterval(timers.fast); timers.fast = null; }
+    if (timers.clock) { clearInterval(timers.clock); timers.clock = null; }
+    if (timers.raf) { cancelAnimationFrame(timers.raf); timers.raf = null; }
+  }
+  document.addEventListener("visibilitychange", function(){
+    if (!adminKey) return;
+    if (document.hidden) stopPolling();
+    else startPolling();
+  });
+
+  /* ============================== auth flow ============================== */
+  function enterDash(){
+    $("gate").classList.add("unlocking");
+    var dash = $("dash");
+    dash.classList.remove("hidden");
+    requestAnimationFrame(function(){ dash.classList.add("on"); });
+    setTimeout(function(){ $("gate").classList.add("hidden"); }, 650);
+    startPolling();
+  }
+  function doLogout(){
+    stopPolling();
+    adminKey = null;
+    try { sessionStorage.removeItem(KEY_STORE); } catch(e){}
+    units = {};
+    ridesData = []; usersData = []; lastStats = null; lastDaysJson = "";
+    var gate = $("gate");
+    gate.classList.remove("hidden");
+    requestAnimationFrame(function(){ gate.classList.remove("unlocking"); });
+    $("dash").classList.remove("on");
+    setTimeout(function(){ if (!adminKey) $("dash").classList.add("hidden"); }, 700);
+    $("gateErr").textContent = "";
+  }
+
+  $("loginForm").addEventListener("submit", function(ev){
+    ev.preventDefault();
+    var key = $("keyInput").value.trim();
+    if (!key) { $("gateErr").textContent = "Key required"; return; }
+    var btn = $("authBtn");
+    btn.disabled = true;
+    btn.textContent = "Verifying…";
+    fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key: key })
+    }).then(function(res){
+      if (res.status === 401) throw new Error("bad-key");
+      if (!res.ok) throw new Error("http");
+      return res.json();
+    }).then(function(){
+      adminKey = key;
+      try { sessionStorage.setItem(KEY_STORE, key); } catch(e){}
+      $("gateErr").textContent = "";
+      enterDash();
+    }).catch(function(err){
+      $("gateErr").textContent = err.message === "bad-key" ? "Access denied — invalid key" : "Cannot reach control tower";
+    }).finally(function(){
+      btn.disabled = false;
+      btn.textContent = "Authenticate";
+    });
+  });
+
+  $("logoutBtn").addEventListener("click", doLogout);
+  $("refreshBtn").addEventListener("click", function(){
+    var b = $("refreshBtn");
+    b.classList.remove("spin-once");
+    void b.offsetWidth;
+    b.classList.add("spin-once");
+    refreshSlow();
+    refreshFast();
+  });
+
+  /* ============================== tabs + search ============================== */
+  $("tabRides").addEventListener("click", function(){
+    this.classList.add("on"); $("tabRiders").classList.remove("on");
+    $("ridesWrap").classList.remove("hidden"); $("ridersWrap").classList.add("hidden");
+  });
+  $("tabRiders").addEventListener("click", function(){
+    this.classList.add("on"); $("tabRides").classList.remove("on");
+    $("ridersWrap").classList.remove("hidden"); $("ridesWrap").classList.add("hidden");
+  });
+  $("searchBox").addEventListener("input", function(){
+    searchTerm = this.value.trim().toLowerCase();
+    renderRides();
+    renderRiders();
+  });
+
+  /* ============================== map events ============================== */
+  mapCv = $("map");
+  mapCtx = mapCv.getContext("2d");
+  mapCv.addEventListener("mousemove", function(ev){
+    var r = mapCv.getBoundingClientRect();
+    mouse.x = ev.clientX - r.left;
+    mouse.y = ev.clientY - r.top;
+    mouse.inside = true;
+  });
+  mapCv.addEventListener("mouseleave", function(){
+    mouse.inside = false;
+    hoverId = null;
+    $("maptip").style.display = "none";
+    syncListHighlight();
+  });
+  $("fleetlist").addEventListener("mouseover", function(ev){
+    var card = ev.target.closest ? ev.target.closest(".fleet-card") : null;
+    if (card) { hoverId = card.getAttribute("data-rid"); syncListHighlight(); }
+  });
+  $("fleetlist").addEventListener("mouseleave", function(){
+    if (!mouse.inside) { hoverId = null; syncListHighlight(); }
+  });
+  window.addEventListener("resize", function(){
+    if (running && chartDays.length) renderCharts(null, 1);
+  });
+
+  /* ============================== boot ============================== */
+  var saved = null;
+  try { saved = sessionStorage.getItem(KEY_STORE); } catch(e){}
+  if (saved) {
+    fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key: saved })
+    }).then(function(res){
+      if (!res.ok) throw new Error("stale");
+      adminKey = saved;
+      enterDash();
+    }).catch(function(){
+      try { sessionStorage.removeItem(KEY_STORE); } catch(e){}
+    });
+  }
+})();
+</script>
+</body>
+</html>
