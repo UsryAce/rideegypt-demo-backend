@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Rahal Go — The future of moving through Qatar</title>
+<meta name="description" content="Rahal Go — Qatar's futuristic ride-hailing network. Book a ride in seconds across Doha and beyond.">
+<style>
+  :root{
+    --bg:#070B14;
+    --bg-2:#0A1020;
+    --maroon:#8A1538;
+    --maroon-bright:#C42B5A;
+    --gold:#D4AF6A;
+    --aqua:#00E5C7;
+    --white-hi:rgba(255,255,255,.96);
+    --white-mid:rgba(255,255,255,.72);
+    --white-low:rgba(255,255,255,.48);
+    --white-faint:rgba(255,255,255,.28);
+    --glass:rgba(255,255,255,.045);
+    --glass-hi:rgba(255,255,255,.08);
+    --line:rgba(255,255,255,.10);
+    --line-hi:rgba(255,255,255,.18);
+    --radius:20px;
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Tahoma,Arial,sans-serif;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  html,body{overflow-x:clip}
+  body{
+    background:var(--bg);
+    color:var(--white-hi);
+    font-family:var(--font);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  html[dir="rtl"] body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Tahoma,'Geeza Pro',Arial,sans-serif}
+  a{color:inherit;text-decoration:none}
+  img,svg,canvas{max-width:100%}
+  ::selection{background:rgba(0,229,199,.25)}
+
+  /* ---------- Animated gradient mesh background ---------- */
+  .mesh{
+    position:fixed;inset:0;z-index:-2;overflow:hidden;background:var(--bg);
+  }
+  .mesh::before,.mesh::after{
+    content:"";position:absolute;width:75vmax;height:75vmax;border-radius:50%;
+    filter:blur(90px);opacity:.35;will-change:transform;
+  }
+  .mesh::before{
+    background:radial-gradient(circle at 30% 30%, rgba(138,21,56,.55), transparent 60%);
+    top:-25vmax;inset-inline-start:-20vmax;
+    animation:drift1 26s ease-in-out infinite alternate;
+  }
+  .mesh::after{
+    background:radial-gradient(circle at 60% 60%, rgba(0,229,199,.28), transparent 60%);
+    bottom:-30vmax;inset-inline-end:-22vmax;
+    animation:drift2 32s ease-in-out infinite alternate;
+  }
+  .mesh .m3{
+    position:absolute;width:55vmax;height:55vmax;border-radius:50%;
+    background:radial-gradient(circle, rgba(212,175,106,.16), transparent 60%);
+    top:30%;left:35%;filter:blur(100px);opacity:.5;
+    animation:drift3 40s ease-in-out infinite alternate;
+  }
+  @keyframes drift1{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(9vmax,7vmax,0) scale(1.15)}}
+  @keyframes drift2{from{transform:translate3d(0,0,0) scale(1.1)}to{transform:translate3d(-8vmax,-6vmax,0) scale(.95)}}
+  @keyframes drift3{from{transform:translate3d(-5vmax,3vmax,0)}to{transform:translate3d(6vmax,-5vmax,0)}}
+
+  /* ---------- Nav ---------- */
+  nav{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:14px clamp(16px,4vw,48px);
+    background:rgba(7,11,20,.55);
+    -webkit-backdrop-filter:blur(18px) saturate(140%);
+    backdrop-filter:blur(18px) saturate(140%);
+    border-bottom:1px solid var(--line);
+  }
+  .wordmark{
+    font-size:1.35rem;font-weight:800;letter-spacing:.02em;white-space:nowrap;
+    background:linear-gradient(100deg,#F5E3BC 0%,var(--gold) 40%,#A9823F 70%,#F0D9A8 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 14px rgba(212,175,106,.35));
+  }
+  .wordmark small{
+    display:block;font-size:.58rem;font-weight:600;letter-spacing:.34em;text-transform:uppercase;
+    color:var(--aqua);-webkit-text-fill-color:var(--aqua);filter:none;margin-top:-2px;
+  }
+  html[dir="rtl"] .wordmark small{letter-spacing:.12em}
+  .nav-links{display:flex;align-items:center;gap:clamp(14px,2.4vw,30px)}
+  .nav-links a{
+    color:var(--white-mid);font-size:.92rem;font-weight:500;position:relative;transition:color .25s;
+  }
+  .nav-links a:hover{color:var(--aqua)}
+  .nav-links a::after{
+    content:"";position:absolute;bottom:-6px;inset-inline-start:0;width:0;height:1px;
+    background:var(--aqua);box-shadow:0 0 8px var(--aqua);transition:width .3s;
+  }
+  .nav-links a:hover::after{width:100%}
+  .nav-actions{display:flex;align-items:center;gap:12px}
+  .lang-btn{
+    font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;
+    color:var(--gold);background:transparent;border:1px solid rgba(212,175,106,.4);
+    border-radius:999px;padding:8px 16px;transition:all .3s;white-space:nowrap;
+  }
+  .lang-btn:hover{border-color:var(--gold);box-shadow:0 0 16px rgba(212,175,106,.35);background:rgba(212,175,106,.08)}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;white-space:nowrap;
+    border-radius:999px;padding:12px 26px;border:1px solid transparent;
+    transition:transform .25s,box-shadow .25s,background .25s,border-color .25s;
+  }
+  .btn:active{transform:scale(.97)}
+  .btn-primary{
+    color:#fff;background:linear-gradient(120deg,var(--maroon) 0%,#B01E48 60%,var(--maroon) 100%);
+    box-shadow:0 0 24px rgba(138,21,56,.55),inset 0 1px 0 rgba(255,255,255,.18);
+    border-color:rgba(255,255,255,.14);
+  }
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 34px rgba(196,43,90,.6),inset 0 1px 0 rgba(255,255,255,.22)}
+  .btn-ghost{
+    color:var(--aqua);background:rgba(0,229,199,.06);border-color:rgba(0,229,199,.35);
+  }
+  .btn-ghost:hover{transform:translateY(-2px);box-shadow:0 0 26px rgba(0,229,199,.3);border-color:var(--aqua)}
+  .btn-nav{padding:9px 20px;font-size:.87rem}
+
+  /* ---------- Hero ---------- */
+  .hero{
+    position:relative;min-height:100svh;display:flex;align-items:center;justify-content:center;
+    overflow:clip;padding:110px clamp(16px,5vw,48px) 80px;
+  }
+  #cityCanvas{
+    position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0;
+  }
+  .hero::after{
+    content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:
+      radial-gradient(ellipse 90% 60% at 50% 42%, transparent 30%, rgba(7,11,20,.55) 100%),
+      linear-gradient(to bottom, rgba(7,11,20,.35), transparent 30%, transparent 70%, var(--bg) 100%);
+  }
+  .hero-inner{position:relative;z-index:2;text-align:center;max-width:920px}
+  .hero-badge{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:.78rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--aqua);border:1px solid rgba(0,229,199,.3);border-radius:999px;
+    padding:7px 18px;background:rgba(0,229,199,.05);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    margin-bottom:26px;
+  }
+  html[dir="rtl"] .hero-badge{letter-spacing:.02em}
+  .hero-badge .dot{
+    width:7px;height:7px;border-radius:50%;background:var(--aqua);
+    box-shadow:0 0 10px var(--aqua);animation:pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
+  h1{
+    font-size:clamp(2.4rem,7vw,4.6rem);line-height:1.08;font-weight:800;letter-spacing:-.02em;
+    margin-bottom:22px;
+    background:linear-gradient(180deg,#fff 20%,rgba(255,255,255,.62) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-wrap:balance;
+  }
+  html[dir="rtl"] h1{letter-spacing:0;line-height:1.3}
+  .hero-sub{
+    font-size:clamp(1rem,2vw,1.22rem);color:var(--white-mid);max-width:640px;
+    margin:0 auto 38px;text-wrap:balance;
+  }
+  .hero-ctas{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+  .hero-ctas .btn{padding:15px 34px;font-size:1.02rem}
+  .scroll-hint{
+    position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:2;
+    display:flex;flex-direction:column;align-items:center;gap:8px;
+    color:var(--white-low);font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;
+  }
+  html[dir="rtl"] .scroll-hint{letter-spacing:.05em}
+  .scroll-hint .line{
+    width:1px;height:34px;overflow:hidden;position:relative;background:rgba(255,255,255,.1);
+  }
+  .scroll-hint .line::after{
+    content:"";position:absolute;top:-100%;left:0;width:100%;height:100%;
+    background:linear-gradient(to bottom,transparent,var(--aqua));
+    animation:scrollLine 2.2s ease-in-out infinite;
+  }
+  @keyframes scrollLine{0%{top:-100%}60%,100%{top:100%}}
+
+  /* ---------- Sections ---------- */
+  section{position:relative;padding:clamp(70px,10vw,130px) clamp(16px,5vw,48px)}
+  .wrap{max-width:1180px;margin:0 auto}
+  .kicker{
+    font-size:.78rem;font-weight:700;letter-spacing:.24em;text-transform:uppercase;
+    color:var(--aqua);margin-bottom:14px;
+  }
+  html[dir="rtl"] .kicker{letter-spacing:.04em}
+  h2{
+    font-size:clamp(1.7rem,4vw,2.7rem);font-weight:800;letter-spacing:-.015em;line-height:1.15;
+    margin-bottom:16px;text-wrap:balance;
+  }
+  html[dir="rtl"] h2{letter-spacing:0;line-height:1.35}
+  .section-sub{color:var(--white-mid);max-width:620px;font-size:1.05rem;margin-bottom:48px}
+  .center{text-align:center}
+  .center .section-sub{margin-left:auto;margin-right:auto}
+
+  /* ---------- Glass cards ---------- */
+  .glass{
+    position:relative;background:var(--glass);border:1px solid var(--line);
+    border-radius:var(--radius);
+    -webkit-backdrop-filter:blur(16px) saturate(130%);backdrop-filter:blur(16px) saturate(130%);
+    transition:border-color .35s,box-shadow .35s,transform .35s,background .35s;
+  }
+  .glass::before{
+    content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:linear-gradient(160deg,rgba(255,255,255,.09),transparent 38%);
+  }
+
+  /* ---------- Live network strip ---------- */
+  .stats-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:18px;
+  }
+  .stat{
+    padding:28px 26px;overflow:hidden;
+  }
+  .stat:hover{border-color:rgba(0,229,199,.3);box-shadow:0 0 30px rgba(0,229,199,.08)}
+  .stat .badge{
+    position:absolute;top:16px;inset-inline-end:16px;
+    font-size:.62rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+    padding:4px 10px;border-radius:999px;
+  }
+  html[dir="rtl"] .stat .badge{letter-spacing:.02em}
+  .badge-live{color:var(--aqua);background:rgba(0,229,199,.1);border:1px solid rgba(0,229,199,.35);box-shadow:0 0 12px rgba(0,229,199,.18)}
+  .badge-demo{color:var(--gold);background:rgba(212,175,106,.08);border:1px solid rgba(212,175,106,.3)}
+  .stat-num{
+    font-size:clamp(2.1rem,4vw,2.9rem);font-weight:800;letter-spacing:-.02em;line-height:1.1;
+    font-variant-numeric:tabular-nums;
+    background:linear-gradient(180deg,#fff,rgba(255,255,255,.6));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    margin-bottom:6px;direction:ltr;unicode-bidi:embed;
+  }
+  html[dir="rtl"] .stat-num{text-align:right}
+  .stat-label{color:var(--white-mid);font-size:.92rem}
+  .stats-note{margin-top:22px;color:var(--white-low);font-size:.82rem;max-width:560px}
+
+  /* ---------- Ride tiers ---------- */
+  .tiers-grid{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:22px;
+    perspective:1400px;
+  }
+  .tier-card{
+    padding:30px 28px;transform-style:preserve-3d;will-change:transform;overflow:hidden;
+  }
+  .tier-card:hover{border-color:rgba(212,175,106,.4);box-shadow:0 18px 50px rgba(0,0,0,.45),0 0 34px rgba(138,21,56,.22)}
+  .tier-card .shine{
+    position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;
+    background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.12),transparent 45%);
+    transition:opacity .3s;
+  }
+  .tier-card:hover .shine{opacity:1}
+  .tier-icon{margin-bottom:18px;color:var(--aqua);filter:drop-shadow(0 0 10px rgba(0,229,199,.4))}
+  .tier-name{font-size:1.35rem;font-weight:800;margin-bottom:2px}
+  .tier-name-alt{color:var(--gold);font-size:.92rem;font-weight:600;margin-bottom:12px}
+  .tier-desc{color:var(--white-mid);font-size:.92rem;min-height:3em;margin-bottom:20px}
+  .tier-fare{
+    display:flex;align-items:baseline;gap:6px;margin-bottom:4px;flex-wrap:wrap;
+  }
+  .tier-fare .big{
+    font-size:2rem;font-weight:800;letter-spacing:-.02em;
+    background:linear-gradient(120deg,#F5E3BC,var(--gold));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    font-variant-numeric:tabular-nums;
+  }
+  .tier-fare .cur{color:var(--gold);font-size:.85rem;font-weight:700}
+  .tier-fare .plus{color:var(--white-low);font-size:.85rem}
+  .tier-meta{
+    display:flex;gap:14px;margin-top:16px;padding-top:16px;
+    border-top:1px solid var(--line);color:var(--white-low);font-size:.8rem;flex-wrap:wrap;
+  }
+  .tier-meta strong{color:var(--white-mid);font-weight:700}
+  .tiers-err{color:var(--white-low);font-size:.85rem;margin-top:14px;display:none}
+
+  /* ---------- Features ---------- */
+  .feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+  .feat{padding:28px}
+  .feat:hover{transform:translateY(-4px);border-color:rgba(0,229,199,.3);box-shadow:0 14px 40px rgba(0,0,0,.4),0 0 26px rgba(0,229,199,.08)}
+  .feat-icon{
+    width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,229,199,.07);border:1px solid rgba(0,229,199,.22);margin-bottom:18px;
+    color:var(--aqua);box-shadow:inset 0 0 18px rgba(0,229,199,.08);
+  }
+  .feat h3{font-size:1.08rem;font-weight:700;margin-bottom:8px}
+  .feat p{color:var(--white-mid);font-size:.92rem}
+
+  /* ---------- How it works ---------- */
+  .steps{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:26px;position:relative;counter-reset:step;
+  }
+  .steps::before{
+    content:"";position:absolute;top:34px;left:12%;right:12%;height:2px;z-index:0;
+    background:linear-gradient(90deg,transparent,var(--maroon-bright) 20%,var(--aqua) 80%,transparent);
+    box-shadow:0 0 14px rgba(0,229,199,.4);opacity:.6;
+  }
+  .step{position:relative;z-index:1;text-align:center;padding:0 8px}
+  .step-dot{
+    width:68px;height:68px;margin:0 auto 20px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.4rem;font-weight:800;color:var(--gold);
+    background:rgba(10,16,32,.9);border:1px solid rgba(212,175,106,.4);
+    box-shadow:0 0 26px rgba(212,175,106,.25),inset 0 0 18px rgba(212,175,106,.08);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  }
+  .step h3{font-size:1.12rem;font-weight:700;margin-bottom:8px}
+  .step p{color:var(--white-mid);font-size:.92rem;max-width:270px;margin:0 auto}
+  @media (max-width:760px){
+    .steps{grid-template-columns:1fr;gap:38px}
+    .steps::before{left:calc(50% - 1px);right:auto;top:8%;bottom:8%;width:2px;height:auto;
+      background:linear-gradient(180deg,transparent,var(--maroon-bright) 20%,var(--aqua) 80%,transparent)}
+  }
+
+  /* ---------- CTA band ---------- */
+  .cta-band{
+    text-align:center;padding:clamp(50px,7vw,80px) clamp(20px,5vw,60px);overflow:hidden;
+  }
+  .cta-band::after{
+    content:"";position:absolute;inset:-40%;pointer-events:none;z-index:-1;
+    background:
+      radial-gradient(ellipse 50% 40% at 30% 50%,rgba(138,21,56,.35),transparent 65%),
+      radial-gradient(ellipse 45% 40% at 72% 50%,rgba(0,229,199,.14),transparent 65%);
+  }
+  .cta-band h2{margin-bottom:12px}
+  .cta-band p{color:var(--white-mid);margin-bottom:32px}
+
+  /* ---------- Footer ---------- */
+  footer{
+    border-top:1px solid var(--line);padding:48px clamp(16px,5vw,48px) 40px;
+    background:linear-gradient(to bottom,transparent,rgba(138,21,56,.06));
+  }
+  .foot-inner{
+    max-width:1180px;margin:0 auto;display:flex;flex-wrap:wrap;gap:28px;
+    align-items:flex-start;justify-content:space-between;
+  }
+  .foot-brand p{color:var(--white-low);font-size:.88rem;max-width:320px;margin-top:10px}
+  .foot-links{display:flex;gap:clamp(24px,4vw,60px);flex-wrap:wrap}
+  .foot-col h4{
+    font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--white-low);margin-bottom:14px;
+  }
+  html[dir="rtl"] .foot-col h4{letter-spacing:.03em}
+  .foot-col a{display:block;color:var(--white-mid);font-size:.92rem;margin-bottom:10px;transition:color .25s}
+  .foot-col a:hover{color:var(--aqua)}
+  .foot-bottom{
+    max-width:1180px;margin:36px auto 0;padding-top:22px;border-top:1px solid var(--line);
+    display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+    color:var(--white-low);font-size:.82rem;
+  }
+  .made-in{color:var(--gold);font-weight:600}
+
+  /* ---------- Reveal animations ---------- */
+  .reveal{opacity:0;transform:translateY(28px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  .reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}
+  .reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}
+  .reveal.d5{transition-delay:.40s}.reveal.d6{transition-delay:.48s}
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+    html{scroll-behavior:auto}
+    .reveal{opacity:1;transform:none}
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width:860px){
+    .nav-links{display:none}
+  }
+  @media (max-width:480px){
+    nav{padding:12px 14px}
+    .btn-nav{padding:8px 14px;font-size:.8rem}
+    .lang-btn{padding:7px 12px;font-size:.78rem}
+    .hero-ctas .btn{width:100%;max-width:340px}
+    .wordmark{font-size:1.15rem}
+  }
+</style>
+</head>
+<body>
+
+<div class="mesh" aria-hidden="true"><div class="m3"></div></div>
+
+<nav>
+  <a href="#top" class="wordmark"><span data-i18n="brand">Rahal Go</span><small data-i18n="brandSub">Qatar</small></a>
+  <div class="nav-links">
+    <a href="#network" data-i18n="navNetwork">Network</a>
+    <a href="#tiers" data-i18n="navTiers">Ride tiers</a>
+    <a href="#features" data-i18n="navFeatures">Features</a>
+    <a href="#how" data-i18n="navHow">How it works</a>
+  </div>
+  <div class="nav-actions">
+    <button class="lang-btn" id="langBtn" type="button" aria-label="Switch language">العربية</button>
+    <a href="/app/" class="btn btn-primary btn-nav" data-i18n="navOpen">Open App</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <canvas id="cityCanvas" aria-hidden="true"></canvas>
+  <div class="hero-inner">
+    <div class="hero-badge reveal in"><span class="dot"></span><span data-i18n="heroBadge">Now riding across Doha</span></div>
+    <h1 data-i18n="heroH1">The future of moving through Qatar.</h1>
+    <p class="hero-sub" data-i18n="heroSub">Rahal Go pairs a live driver network with a beautifully simple app — from West Bay to Al Wakrah, your ride is seconds away.</p>
+    <div class="hero-ctas">
+      <a href="/app/" class="btn btn-primary" data-i18n="heroCta1">Book a ride</a>
+      <a href="/admin/" class="btn btn-ghost" data-i18n="heroCta2">Operations Dashboard</a>
+    </div>
+  </div>
+  <div class="scroll-hint" aria-hidden="true">
+    <span data-i18n="scrollHint">Scroll</span>
+    <div class="line"></div>
+  </div>
+</header>
+
+<section id="network">
+  <div class="wrap">
+    <div class="kicker reveal" data-i18n="liveKicker">Live network</div>
+    <h2 class="reveal d1" data-i18n="liveTitle">The network, right now</h2>
+    <div class="stats-grid" id="statsGrid">
+      <div class="glass stat reveal d1">
+        <span class="badge badge-live" id="ridersBadge" data-i18n="badgeLive">Live</span>
+        <div class="stat-num" id="statRiders" data-target="0">0</div>
+        <div class="stat-label" data-i18n="statRiders">Registered riders</div>
+      </div>
+      <div class="glass stat reveal d2">
+        <span class="badge badge-demo" data-i18n="badgeDemo">Demo</span>
+        <div class="stat-num" id="statDrivers" data-target="1240">0</div>
+        <div class="stat-label" data-i18n="statDrivers">Drivers online</div>
+      </div>
+      <div class="glass stat reveal d3">
+        <span class="badge badge-demo" data-i18n="badgeDemo">Demo</span>
+        <div class="stat-num" id="statRides" data-target="8450">0</div>
+        <div class="stat-label" data-i18n="statRides">Rides completed today</div>
+      </div>
+      <div class="glass stat reveal d4">
+        <span class="badge badge-demo" data-i18n="badgeDemo">Demo</span>
+        <div class="stat-num" id="statPickup" data-target="3.2" data-decimals="1">0</div>
+        <div class="stat-label" data-i18n="statPickup">Avg. pickup time (min)</div>
+      </div>
+    </div>
+    <p class="stats-note reveal d5" data-i18n="liveNote">Rider count is live from the Rahal Go API. Figures marked “demo” are illustrative.</p>
+  </div>
+</section>
+
+<section id="tiers">
+  <div class="wrap center">
+    <div class="kicker reveal" data-i18n="tiersKicker">Ride tiers</div>
+    <h2 class="reveal d1" data-i18n="tiersTitle">A ride for every journey</h2>
+    <p class="section-sub reveal d2" data-i18n="tiersSub">Four tiers, one tap. Fares in Qatari Riyal, streamed live from our API.</p>
+    <div class="tiers-grid" id="tiersGrid"></div>
+    <p class="tiers-err" id="tiersErr" data-i18n="tiersErr">Showing standard fares — live pricing is temporarily unavailable.</p>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap center">
+    <div class="kicker reveal" data-i18n="featKicker">Features</div>
+    <h2 class="reveal d1" data-i18n="featTitle">Engineered for Qatar</h2>
+    <p class="section-sub reveal d2" data-i18n="featSub">Every detail — from Arabic-first design to QAR wallets — built for how Qatar actually moves.</p>
+    <div class="feat-grid" id="featGrid"></div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap center">
+    <div class="kicker reveal" data-i18n="howKicker">Simple by design</div>
+    <h2 class="reveal d1" data-i18n="howTitle">How it works</h2>
+    <p class="section-sub reveal d2" data-i18n="howSub">Three steps between you and anywhere in Qatar.</p>
+    <div class="steps">
+      <div class="step reveal d1">
+        <div class="step-dot">1</div>
+        <h3 data-i18n="how1T">Set your pickup</h3>
+        <p data-i18n="how1P">Drop a pin on the map or choose one of your saved places.</p>
+      </div>
+      <div class="step reveal d3">
+        <div class="step-dot">2</div>
+        <h3 data-i18n="how2T">Match in seconds</h3>
+        <p data-i18n="how2P">Our live network pairs you with the nearest driver instantly.</p>
+      </div>
+      <div class="step reveal d5">
+        <div class="step-dot">3</div>
+        <h3 data-i18n="how3T">Track, ride, pay</h3>
+        <p data-i18n="how3P">Follow the trip in real time and pay from your QAR wallet.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="glass cta-band reveal">
+      <h2 data-i18n="ctaTitle">Doha is waiting. Ready when you are.</h2>
+      <p data-i18n="ctaSub">Open the app and your first ride is a tap away.</p>
+      <a href="/app/" class="btn btn-primary" data-i18n="ctaBtn">Book a ride</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="foot-inner">
+    <div class="foot-brand">
+      <span class="wordmark"><span data-i18n="brand">Rahal Go</span><small data-i18n="brandSub">Qatar</small></span>
+      <p data-i18n="footTag">Rahal Go — the future of moving through Qatar. A demo experience showcasing the full platform.</p>
+    </div>
+    <div class="foot-links">
+      <div class="foot-col">
+        <h4 data-i18n="footProduct">Product</h4>
+        <a href="/app/" data-i18n="footApp">Rider app</a>
+        <a href="/admin/" data-i18n="footAdmin">Operations Dashboard</a>
+      </div>
+      <div class="foot-col">
+        <h4 data-i18n="footExplore">Explore</h4>
+        <a href="#tiers" data-i18n="navTiers">Ride tiers</a>
+        <a href="#features" data-i18n="navFeatures">Features</a>
+        <a href="#how" data-i18n="navHow">How it works</a>
+      </div>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <span data-i18n="footCopy">© 2026 Rahal Go. Demo experience.</span>
+    <span class="made-in" data-i18n="madeIn">Made in Qatar 🇶🇦</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================= i18n ================= */
+  var I18N = {
+    en: {
+      brand: "Rahal Go",
+      brandSub: "Qatar",
+      navNetwork: "Network",
+      navTiers: "Ride tiers",
+      navFeatures: "Features",
+      navHow: "How it works",
+      navOpen: "Open App",
+      heroBadge: "Now riding across Doha",
+      heroH1: "The future of moving through Qatar.",
+      heroSub: "Rahal Go pairs a live driver network with a beautifully simple app — from West Bay to Al Wakrah, your ride is seconds away.",
+      heroCta1: "Book a ride",
+      heroCta2: "Operations Dashboard",
+      scrollHint: "Scroll",
+      liveKicker: "Live network",
+      liveTitle: "The network, right now",
+      statRiders: "Registered riders",
+      statDrivers: "Drivers online",
+      statRides: "Rides completed today",
+      statPickup: "Avg. pickup time (min)",
+      badgeLive: "Live",
+      badgeDemo: "Demo",
+      liveNote: "Rider count is live from the Rahal Go API. Figures marked “demo” are illustrative.",
+      tiersKicker: "Ride tiers",
+      tiersTitle: "A ride for every journey",
+      tiersSub: "Four tiers, one tap. Fares in Qatari Riyal, streamed live from our API.",
+      tiersErr: "Showing standard fares — live pricing is temporarily unavailable.",
+      baseFare: "Base fare",
+      perKm: "per km",
+      minFare: "Min. fare",
+      seats: "seats",
+      qar: "QAR",
+      featKicker: "Features",
+      featTitle: "Engineered for Qatar",
+      featSub: "Every detail — from Arabic-first design to QAR wallets — built for how Qatar actually moves.",
+      howKicker: "Simple by design",
+      howTitle: "How it works",
+      howSub: "Three steps between you and anywhere in Qatar.",
+      how1T: "Set your pickup",
+      how1P: "Drop a pin on the map or choose one of your saved places.",
+      how2T: "Match in seconds",
+      how2P: "Our live network pairs you with the nearest driver instantly.",
+      how3T: "Track, ride, pay",
+      how3P: "Follow the trip in real time and pay from your QAR wallet.",
+      ctaTitle: "Doha is waiting. Ready when you are.",
+      ctaSub: "Open the app and your first ride is a tap away.",
+      ctaBtn: "Book a ride",
+      footTag: "Rahal Go — the future of moving through Qatar. A demo experience showcasing the full platform.",
+      footProduct: "Product",
+      footApp: "Rider app",
+      footAdmin: "Operations Dashboard",
+      footExplore: "Explore",
+      footCopy: "© 2026 Rahal Go. Demo experience.",
+      madeIn: "Made in Qatar 🇶🇦"
+    },
+    ar: {
+      brand: "رحّال جو",
+      brandSub: "قطر",
+      navNetwork: "الشبكة",
+      navTiers: "فئات الرحلات",
+      navFeatures: "المزايا",
+      navHow: "كيف تعمل",
+      navOpen: "افتح التطبيق",
+      heroBadge: "الآن في جميع أنحاء الدوحة",
+      heroH1: "مستقبل التنقل في قطر",
+      heroSub: "رحّال جو يجمع بين شبكة سائقين تعمل لحظة بلحظة وتطبيق بسيط وأنيق — من الخليج الغربي إلى الوكرة، رحلتك على بُعد ثوانٍ.",
+      heroCta1: "احجز رحلتك",
+      heroCta2: "لوحة العمليات",
+      scrollHint: "مرّر للأسفل",
+      liveKicker: "الشبكة المباشرة",
+      liveTitle: "الشبكة الآن",
+      statRiders: "ركّاب مسجّلون",
+      statDrivers: "سائقون متصلون",
+      statRides: "رحلات مكتملة اليوم",
+      statPickup: "متوسط زمن الوصول (دقيقة)",
+      badgeLive: "مباشر",
+      badgeDemo: "تجريبي",
+      liveNote: "عدد الركّاب مباشر من واجهة رحّال جو البرمجية، أمّا الأرقام المعلّمة بـ«تجريبي» فهي للعرض فقط.",
+      tiersKicker: "فئات الرحلات",
+      tiersTitle: "رحلة تناسب كل مشوار",
+      tiersSub: "أربع فئات بلمسة واحدة، والأسعار بالريال القطري محدّثة مباشرة من النظام.",
+      tiersErr: "نعرض الأسعار القياسية — التسعير المباشر غير متاح مؤقتًا.",
+      baseFare: "فتحة العدّاد",
+      perKm: "لكل كم",
+      minFare: "الحد الأدنى",
+      seats: "مقاعد",
+      qar: "ر.ق",
+      featKicker: "المزايا",
+      featTitle: "صُمّم خصيصًا لقطر",
+      featSub: "كل تفصيلة — من التصميم العربي إلى المحفظة بالريال — مبنية على طريقة تنقّل الناس في قطر فعلاً.",
+      howKicker: "بساطة في التصميم",
+      howTitle: "كيف تعمل الخدمة",
+      howSub: "ثلاث خطوات تفصلك عن أي مكان في قطر.",
+      how1T: "حدّد نقطة الانطلاق",
+      how1P: "ثبّت الدبوس على الخريطة أو اختر مكانًا من أماكنك المحفوظة.",
+      how2T: "اقتران خلال ثوانٍ",
+      how2P: "تربطك الشبكة بأقرب سائق إليك فورًا.",
+      how3T: "تابع واركب وادفع",
+      how3P: "تابع رحلتك مباشرة وادفع من محفظتك بكل سهولة.",
+      ctaTitle: "الدوحة بانتظارك، ونحن جاهزون متى ما كنت جاهزًا.",
+      ctaSub: "افتح التطبيق ورحلتك الأولى على بُعد لمسة.",
+      ctaBtn: "احجز رحلتك",
+      footTag: "رحّال جو — مستقبل التنقل في قطر. تجربة عرض تستعرض المنصة كاملة.",
+      footProduct: "المنتج",
+      footApp: "تطبيق الركّاب",
+      footAdmin: "لوحة العمليات",
+      footExplore: "استكشف",
+      footCopy: "© 2026 رحّال جو. تجربة عرض تجريبية.",
+      madeIn: "صُنع في قطر 🇶🇦"
+    }
+  };
+
+  var lang = "en";
+  try {
+    var saved = localStorage.getItem("rahal-lang");
+    if (saved === "ar" || saved === "en") lang = saved;
+  } catch (e) {}
+
+  function t(key){
+    var dict = I18N[lang] || I18N.en;
+    return dict[key] != null ? dict[key] : (I18N.en[key] || key);
+  }
+
+  function applyLang(){
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+    var nodes = document.querySelectorAll("[data-i18n]");
+    for (var i = 0; i < nodes.length; i++) {
+      nodes[i].textContent = t(nodes[i].getAttribute("data-i18n"));
+    }
+    var btn = document.getElementById("langBtn");
+    btn.textContent = lang === "ar" ? "English" : "العربية";
+    document.title = lang === "ar"
+      ? "رحّال جو — مستقبل التنقل في قطر"
+      : "Rahal Go — The future of moving through Qatar";
+    renderTiers();
+    renderFeatures();
+  }
+
+  document.getElementById("langBtn").addEventListener("click", function(){
+    lang = lang === "ar" ? "en" : "ar";
+    try { localStorage.setItem("rahal-lang", lang); } catch (e) {}
+    applyLang();
+  });
+
+  /* ================= Ride tiers ================= */
+  var FALLBACK_TIERS = [
+    {id:"go", name:"Go", nameAr:"جو", description:"Affordable everyday rides", descriptionAr:"رحلات يومية بأسعار مناسبة", base:10, perKm:1.8, minFare:20, seats:4},
+    {id:"comfort", name:"Comfort", nameAr:"كمفورت", description:"Newer cars, top drivers", descriptionAr:"سيارات أحدث وأفضل السائقين", base:14, perKm:2.4, minFare:28, seats:4},
+    {id:"family", name:"Family XL", nameAr:"عائلي XL", description:"SUVs and vans for up to 6", descriptionAr:"سيارات دفع رباعي وفانات حتى ٦ ركاب", base:18, perKm:3.2, minFare:35, seats:6},
+    {id:"business", name:"Business", nameAr:"أعمال", description:"Premium cars, executive service", descriptionAr:"سيارات فاخرة وخدمة تنفيذية", base:30, perKm:4.5, minFare:60, seats:4}
+  ];
+  var tiersData = null;
+  var tiersFromApi = false;
+
+  var TIER_ICONS = {
+    go: '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 24l2.5-7a3 3 0 012.8-2h15.4a3 3 0 012.8 2l2.5 7"/><rect x="5" y="24" width="30" height="7" rx="2.5"/><circle cx="12" cy="31" r="2.6"/><circle cx="28" cy="31" r="2.6"/></svg>',
+    comfort: '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 25l3-8a3 3 0 012.8-2h16.4a3 3 0 012.8 2l3 8"/><rect x="4" y="25" width="32" height="7" rx="3"/><circle cx="11.5" cy="32" r="2.6"/><circle cx="28.5" cy="32" r="2.6"/><path d="M20 6l1.4 2.9L24.5 10l-3.1 1.1L20 14l-1.4-2.9L15.5 10l3.1-1.1z"/></svg>',
+    family: '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 24V15a3 3 0 013-3h18l7 7v5"/><rect x="4" y="24" width="32" height="6" rx="2.5"/><circle cx="12" cy="30" r="2.6"/><circle cx="28" cy="30" r="2.6"/><path d="M22 12v5h8"/></svg>',
+    business: '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 25l3-8a3 3 0 012.8-2h16.4a3 3 0 012.8 2l3 8"/><rect x="4" y="25" width="32" height="7" rx="3"/><circle cx="11.5" cy="32" r="2.6"/><circle cx="28.5" cy="32" r="2.6"/><path d="M14 9h12M20 5v4"/></svg>'
+  };
+
+  function esc(s){
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function fmtNum(n){
+    return (Math.round(n * 10) / 10).toString();
+  }
+
+  function renderTiers(){
+    var grid = document.getElementById("tiersGrid");
+    if (!grid) return;
+    var data = tiersData || FALLBACK_TIERS;
+    var ar = lang === "ar";
+    var html = "";
+    for (var i = 0; i < data.length; i++) {
+      var tr = data[i];
+      var name = ar ? (tr.nameAr || tr.name) : tr.name;
+      var alt = ar ? tr.name : (tr.nameAr || "");
+      var desc = ar ? (tr.descriptionAr || tr.description) : tr.description;
+      var icon = TIER_ICONS[tr.id] || TIER_ICONS.go;
+      html += '<div class="glass tier-card reveal in" data-tilt>'
+        + '<div class="shine"></div>'
+        + '<div class="tier-icon">' + icon + '</div>'
+        + '<div class="tier-name">' + esc(name) + '</div>'
+        + '<div class="tier-name-alt">' + esc(alt) + '</div>'
+        + '<div class="tier-desc">' + esc(desc) + '</div>'
+        + '<div class="tier-fare">'
+        +   '<span class="big">' + fmtNum(tr.base) + '</span>'
+        +   '<span class="cur">' + esc(t("qar")) + '</span>'
+        +   '<span class="plus">+ ' + fmtNum(tr.perKm) + ' ' + esc(t("qar")) + ' ' + esc(t("perKm")) + '</span>'
+        + '</div>'
+        + '<div class="tier-meta">'
+        +   '<span>' + esc(t("baseFare")) + '</span>'
+        +   '<span><strong>' + fmtNum(tr.minFare) + ' ' + esc(t("qar")) + '</strong> ' + esc(t("minFare")) + '</span>'
+        +   '<span><strong>' + tr.seats + '</strong> ' + esc(t("seats")) + '</span>'
+        + '</div>'
+        + '</div>';
+    }
+    grid.innerHTML = html;
+    bindTilt(grid);
+    var err = document.getElementById("tiersErr");
+    if (err) err.style.display = (tiersData === null && tiersFetchDone) ? "block" : "none";
+  }
+
+  var tiersFetchDone = false;
+  fetch("/api/ride-types")
+    .then(function(r){ if (!r.ok) throw new Error("bad status"); return r.json(); })
+    .then(function(j){
+      if (j && j.types && j.types.length) {
+        tiersData = j.types;
+        tiersFromApi = true;
+      }
+      tiersFetchDone = true;
+      renderTiers();
+    })
+    .catch(function(){
+      tiersFetchDone = true;
+      renderTiers();
+    });
+
+  /* ================= Features ================= */
+  var FEATURES = [
+    {
+      en: {t:"Live GPS tracking", p:"Watch your driver approach in real time, street by street, all the way to your door."},
+      ar: {t:"تتبع مباشر عبر GPS", p:"تابع اقتراب سائقك لحظة بلحظة، شارعًا بشارع، حتى باب بيتك."},
+      icon: '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 23s-7.5-6.2-7.5-12A7.5 7.5 0 0113 3.5 7.5 7.5 0 0120.5 11c0 5.8-7.5 12-7.5 12z"/><circle cx="13" cy="11" r="3"/></svg>'
+    },
+    {
+      en: {t:"Scheduled rides", p:"Book up to 7 days ahead — airport runs, meetings, and school pickups on time, every time."},
+      ar: {t:"رحلات مجدولة", p:"احجز مسبقًا حتى ٧ أيام — للمطار والاجتماعات ومشاوير المدرسة، في موعدها دائمًا."},
+      icon: '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="19" height="17" rx="3"/><path d="M3.5 10.5h19M8.5 3v4M17.5 3v4M13 14v4M11 16h4"/></svg>'
+    },
+    {
+      en: {t:"Wallet &amp; promos in QAR", p:"Top up once, ride cash-free, and stack promo codes — all in Qatari Riyal."},
+      ar: {t:"محفظة وعروض بالريال", p:"اشحن رصيدك مرة واحدة وتنقّل بدون نقد واستفد من أكواد الخصم — كل ذلك بالريال القطري."},
+      icon: '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="20" height="14" rx="3"/><path d="M3 11h20"/><circle cx="18" cy="15.5" r="1.4"/></svg>'
+    },
+    {
+      en: {t:"Arabic-first experience", p:"Full right-to-left design and natural Arabic throughout — built in from day one, not bolted on."},
+      ar: {t:"تجربة عربية أولاً", p:"تصميم كامل من اليمين إلى اليسار ولغة عربية سليمة — من اليوم الأول، لا كإضافة لاحقة."},
+      icon: '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="13" r="9.5"/><path d="M3.5 13h19M13 3.5c2.8 2.6 4.2 5.9 4.2 9.5s-1.4 6.9-4.2 9.5c-2.8-2.6-4.2-5.9-4.2-9.5S10.2 6.1 13 3.5z"/></svg>'
+    },
+    {
+      en: {t:"OTP security &amp; rate limiting", p:"One-time login codes with smart rate limiting keep every account locked down."},
+      ar: {t:"حماية برمز التحقق", p:"رموز دخول لمرة واحدة مع حدود ذكية للمحاولات تحمي كل حساب."},
+      icon: '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V6z"/><path d="M9.5 13l2.4 2.4 4.6-4.8"/></svg>'
+    },
+    {
+      en: {t:"One-tap saved places", p:"Home, work, the majlis — your places are always one tap away."},
+      ar: {t:"أماكنك المحفوظة بلمسة", p:"البيت والدوام والمجلس — أماكنك دائمًا على بُعد لمسة."},
+      icon: '<svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L13 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>'
+    }
+  ];
+
+  function renderFeatures(){
+    var grid = document.getElementById("featGrid");
+    if (!grid) return;
+    var ar = lang === "ar";
+    var html = "";
+    for (var i = 0; i < FEATURES.length; i++) {
+      var f = FEATURES[i];
+      var c = ar ? f.ar : f.en;
+      html += '<div class="glass feat reveal in">'
+        + '<div class="feat-icon">' + f.icon + '</div>'
+        + '<h3>' + c.t + '</h3>'
+        + '<p>' + c.p + '</p>'
+        + '</div>';
+    }
+    grid.innerHTML = html;
+  }
+
+  /* ================= 3D tilt cards ================= */
+  var canHover = window.matchMedia && window.matchMedia("(hover:hover)").matches;
+  function bindTilt(scope){
+    if (!canHover) return;
+    var cards = scope.querySelectorAll("[data-tilt]");
+    for (var i = 0; i < cards.length; i++) {
+      (function(card){
+        card.addEventListener("mousemove", function(e){
+          var r = card.getBoundingClientRect();
+          var px = (e.clientX - r.left) / r.width;
+          var py = (e.clientY - r.top) / r.height;
+          var rx = (0.5 - py) * 10;
+          var ry = (px - 0.5) * 12;
+          card.style.transform = "perspective(900px) rotateX(" + rx.toFixed(2) + "deg) rotateY(" + ry.toFixed(2) + "deg) translateY(-4px)";
+          card.style.setProperty("--mx", (px * 100).toFixed(1) + "%");
+          card.style.setProperty("--my", (py * 100).toFixed(1) + "%");
+        });
+        card.addEventListener("mouseleave", function(){
+          card.style.transform = "";
+        });
+      })(cards[i]);
+    }
+  }
+
+  /* ================= Counters + /api/health ================= */
+  var countersStarted = false;
+  function animateCounter(el){
+    var target = parseFloat(el.getAttribute("data-target")) || 0;
+    var decimals = parseInt(el.getAttribute("data-decimals") || "0", 10);
+    var dur = 1700;
+    var start = null;
+    function frame(ts){
+      if (start === null) start = ts;
+      var p = Math.min((ts - start) / dur, 1);
+      var eased = 1 - Math.pow(1 - p, 3);
+      var val = target * eased;
+      el.textContent = decimals
+        ? val.toFixed(decimals)
+        : Math.round(val).toLocaleString("en-US");
+      if (p < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+  function startCounters(){
+    if (countersStarted) return;
+    countersStarted = true;
+    var nums = document.querySelectorAll(".stat-num");
+    for (var i = 0; i < nums.length; i++) animateCounter(nums[i]);
+  }
+
+  fetch("/api/health")
+    .then(function(r){ if (!r.ok) throw new Error("bad status"); return r.json(); })
+    .then(function(j){
+      var el = document.getElementById("statRiders");
+      var users = (j && typeof j.users === "number") ? j.users : 0;
+      el.setAttribute("data-target", String(users));
+      if (countersStarted) animateCounter(el);
+    })
+    .catch(function(){
+      var el = document.getElementById("statRiders");
+      var badge = document.getElementById("ridersBadge");
+      el.setAttribute("data-target", "128");
+      badge.className = "badge badge-demo";
+      badge.setAttribute("data-i18n", "badgeDemo");
+      badge.textContent = t("badgeDemo");
+      if (countersStarted) animateCounter(el);
+    });
+
+  /* ================= Reveal on scroll ================= */
+  var io = null;
+  if ("IntersectionObserver" in window) {
+    io = new IntersectionObserver(function(entries){
+      for (var i = 0; i < entries.length; i++) {
+        if (entries[i].isIntersecting) {
+          entries[i].target.classList.add("in");
+          if (entries[i].target.id === "statsGrid" || entries[i].target.closest("#network")) {
+            startCounters();
+          }
+          io.unobserve(entries[i].target);
+        }
+      }
+    }, { threshold: 0.15, rootMargin: "0px 0px -40px 0px" });
+    var revealEls = document.querySelectorAll(".reveal");
+    for (var ri = 0; ri < revealEls.length; ri++) io.observe(revealEls[ri]);
+    io.observe(document.getElementById("statsGrid"));
+  } else {
+    var all = document.querySelectorAll(".reveal");
+    for (var ai = 0; ai < all.length; ai++) all[ai].classList.add("in");
+    startCounters();
+  }
+
+  /* ================= 3D canvas hero ================= */
+  var canvas = document.getElementById("cityCanvas");
+  var ctx = canvas.getContext("2d");
+  var W = 0, H = 0, DPR = 1;
+  var running = true;
+  var prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+  var mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    var r = canvas.getBoundingClientRect();
+    W = Math.max(1, Math.floor(r.width));
+    H = Math.max(1, Math.floor(r.height));
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  resize();
+  window.addEventListener("resize", resize);
+
+  window.addEventListener("mousemove", function(e){
+    mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.ty = (e.clientY / window.innerHeight) * 2 - 1;
+  }, { passive: true });
+
+  var cam = { x: 0, y: 130, z: 0, ry: 0, fov: 420 };
+  var NEAR = 60;
+  var FAR = 2200;
+
+  // Project world point (y up) to screen. Returns null if behind camera.
+  function project(x, y, z){
+    var dx = x - cam.x;
+    var dy = y - cam.y;
+    var dz = z - cam.z;
+    var c = Math.cos(cam.ry), s = Math.sin(cam.ry);
+    var rx = dx * c - dz * s;
+    var rz = dx * s + dz * c;
+    if (rz < NEAR * 0.5) return null;
+    var f = cam.fov;
+    return {
+      x: W / 2 + (rx * f) / rz,
+      y: H * 0.52 - (dy * f) / rz,
+      z: rz
+    };
+  }
+
+  function depthAlpha(z, base){
+    var a = 1 - (z - NEAR) / (FAR - NEAR);
+    if (a < 0) a = 0;
+    if (a > 1) a = 1;
+    return base * (0.15 + 0.85 * a);
+  }
+
+  /* --- Doha skyline silhouettes (world coords, y up, at far z) --- */
+  function torchTower(cx0, hgt){
+    // Aspire Torch style: narrow base, gentle bulge, tapering to a rounded top
+    var pts = [];
+    var n = 14;
+    for (var i = 0; i <= n; i++) {
+      var tt = i / n;
+      var w = 14 + Math.sin(tt * Math.PI) * 26;
+      pts.push([cx0 - w, tt * hgt]);
+    }
+    for (var j = n; j >= 0; j--) {
+      var t2 = j / n;
+      var w2 = 14 + Math.sin(t2 * Math.PI) * 26;
+      pts.push([cx0 + w2, t2 * hgt]);
+    }
+    return pts;
+  }
+  function tornadoTower(cx0, hgt){
+    // Burj Doha / Tornado style hyperboloid: wide base & top, narrow waist
+    var pts = [];
+    var n = 12;
+    for (var i = 0; i <= n; i++) {
+      var tt = i / n;
+      var w = 40 - Math.sin(tt * Math.PI) * 18;
+      pts.push([cx0 - w, tt * hgt]);
+    }
+    for (var j = n; j >= 0; j--) {
+      var t2 = j / n;
+      var w2 = 40 - Math.sin(t2 * Math.PI) * 18;
+      pts.push([cx0 + w2, t2 * hgt]);
+    }
+    return pts;
+  }
+  function boxTower(cx0, wdt, hgt, cap){
+    var p = [
+      [cx0 - wdt, 0], [cx0 - wdt, hgt], [cx0 + wdt, hgt], [cx0 + wdt, 0]
+    ];
+    if (cap) {
+      p = [
+        [cx0 - wdt, 0], [cx0 - wdt, hgt],
+        [cx0 - wdt * 0.4, hgt + cap], [cx0 + wdt * 0.4, hgt + cap],
+        [cx0 + wdt, hgt], [cx0 + wdt, 0]
+      ];
+    }
+    return p;
+  }
+
+  var SKYLINE_Z = 1750;
+  var skyline = [
+    { pts: boxTower(-620, 40, 200, 0), col: "rgba(138,21,56,0.9)" },
+    { pts: boxTower(-500, 30, 260, 26), col: "rgba(0,229,199,0.75)" },
+    { pts: tornadoTower(-330, 330), col: "rgba(212,175,106,0.85)" },
+    { pts: boxTower(-180, 36, 240, 0), col: "rgba(0,229,199,0.6)" },
+    { pts: boxTower(-70, 26, 300, 34), col: "rgba(196,43,90,0.8)" },
+    { pts: torchTower(90, 380), col: "rgba(0,229,199,0.9)" },
+    { pts: boxTower(240, 34, 220, 0), col: "rgba(212,175,106,0.7)" },
+    { pts: boxTower(360, 26, 290, 30), col: "rgba(138,21,56,0.85)" },
+    { pts: tornadoTower(520, 280), col: "rgba(0,229,199,0.7)" },
+    { pts: boxTower(660, 42, 190, 0), col: "rgba(196,43,90,0.7)" }
+  ];
+
+  /* --- Car light trails --- */
+  var LANES = [-450, -350, -250, -150, -50, 50, 150, 250, 350, 450];
+  var trails = [];
+  function makeTrail(initial){
+    var toward = Math.random() < 0.5; // toward horizon or toward camera
+    return {
+      x: LANES[Math.floor(Math.random() * LANES.length)] + (Math.random() * 30 - 15),
+      z: initial ? NEAR + Math.random() * (FAR - NEAR) : (toward ? NEAR + 40 : FAR - 100),
+      speed: (3 + Math.random() * 5) * (toward ? 1 : -1),
+      len: 90 + Math.random() * 150,
+      maroon: Math.random() < 0.5,
+      horiz: false
+    };
+  }
+  function makeCrossTrail(){
+    var ltr = Math.random() < 0.5;
+    return {
+      x: ltr ? -900 : 900,
+      z: 300 + Math.random() * 1100,
+      speed: (5 + Math.random() * 6) * (ltr ? 1 : -1),
+      len: 110 + Math.random() * 130,
+      maroon: Math.random() < 0.5,
+      horiz: true
+    };
+  }
+  for (var ti = 0; ti < 22; ti++) trails.push(makeTrail(true));
+  for (var ci = 0; ci < 6; ci++) trails.push(makeCrossTrail());
+
+  /* --- Floating particles --- */
+  var particles = [];
+  for (var pi = 0; pi < 70; pi++) {
+    particles.push({
+      x: Math.random() * 2000 - 1000,
+      y: Math.random() * 420 + 20,
+      z: NEAR + Math.random() * (FAR - NEAR),
+      ph: Math.random() * Math.PI * 2,
+      sp: 0.2 + Math.random() * 0.5,
+      gold: Math.random() < 0.3
+    });
+  }
+
+  var GRID_STEP = 100;
+  var scrollZ = 0;
+
+  function drawFrame(time){
+    ctx.clearRect(0, 0, W, H);
+
+    // camera drift + mouse parallax
+    mouse.x += (mouse.tx - mouse.x) * 0.05;
+    mouse.y += (mouse.ty - mouse.y) * 0.05;
+    var tSec = time * 0.001;
+    cam.ry = Math.sin(tSec * 0.05) * 0.05 + mouse.x * 0.035;
+    cam.x = Math.sin(tSec * 0.03) * 40 + mouse.x * 46;
+    cam.y = 130 + Math.sin(tSec * 0.11) * 8 - mouse.y * 24;
+    cam.fov = Math.min(W, 900) < 480 ? 330 : 420;
+
+    var i, a, p1, p2;
+
+    // ---- longitudinal grid lines (roads toward horizon) ----
+    ctx.lineWidth = 1;
+    for (i = -10; i <= 10; i++) {
+      var gx = i * GRID_STEP;
+      p1 = project(gx, 0, NEAR + 10);
+      p2 = project(gx, 0, FAR);
+      if (!p1 || !p2) continue;
+      var grad = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+      grad.addColorStop(0, "rgba(0,229,199,0.16)");
+      grad.addColorStop(1, "rgba(0,229,199,0)");
+      ctx.strokeStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    }
+
+    // ---- cross lines scrolling toward camera ----
+    if (!prefersReduced) scrollZ = (scrollZ + 0.9) % GRID_STEP;
+    for (i = 1; i < 22; i++) {
+      var gz = NEAR + 20 + i * GRID_STEP - scrollZ;
+      if (gz <= NEAR + 5 || gz > FAR) continue;
+      p1 = project(-1000, 0, gz);
+      p2 = project(1000, 0, gz);
+      if (!p1 || !p2) continue;
+      a = depthAlpha(gz, 0.13);
+      ctx.strokeStyle = "rgba(0,229,199," + a.toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    }
+
+    // ---- skyline silhouettes ----
+    ctx.lineJoin = "round";
+    for (i = 0; i < skyline.length; i++) {
+      var b = skyline[i];
+      var pts = b.pts;
+      ctx.beginPath();
+      var started = false;
+      for (var k = 0; k < pts.length; k++) {
+        var sp = project(pts[k][0], pts[k][1], SKYLINE_Z);
+        if (!sp) { started = false; continue; }
+        if (!started) { ctx.moveTo(sp.x, sp.y); started = true; }
+        else ctx.lineTo(sp.x, sp.y);
+      }
+      // glow pass
+      ctx.strokeStyle = b.col.replace(/[\d.]+\)$/, "0.10)");
+      ctx.lineWidth = 5;
+      ctx.stroke();
+      // crisp pass
+      ctx.strokeStyle = b.col;
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+    }
+
+    // ---- car light trails ----
+    ctx.lineCap = "round";
+    for (i = 0; i < trails.length; i++) {
+      var tr = trails[i];
+      if (!prefersReduced) {
+        if (tr.horiz) {
+          tr.x += tr.speed;
+          if (tr.x > 950 || tr.x < -950) trails[i] = makeCrossTrail();
+        } else {
+          tr.z += tr.speed;
+          if (tr.z > FAR || tr.z < NEAR + 20) trails[i] = makeTrail(false);
+        }
+        tr = trails[i];
+      }
+      if (tr.horiz) {
+        p1 = project(tr.x, 4, tr.z);
+        p2 = project(tr.x - tr.len * (tr.speed > 0 ? 1 : -1), 4, tr.z);
+      } else {
+        p1 = project(tr.x, 4, tr.z);
+        p2 = project(tr.x, 4, tr.z + tr.len * (tr.speed > 0 ? -1 : 1));
+      }
+      if (!p1 || !p2) continue;
+      var za = depthAlpha(tr.z, 1);
+      var col = tr.maroon
+        ? { head: "rgba(255,105,150,", body: "rgba(196,43,90," }
+        : { head: "rgba(160,255,240,", body: "rgba(0,229,199," };
+      var lg = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+      lg.addColorStop(0, col.head + (0.85 * za).toFixed(3) + ")");
+      lg.addColorStop(1, col.body + "0)");
+      // glow pass
+      ctx.strokeStyle = col.body + (0.12 * za).toFixed(3) + ")";
+      ctx.lineWidth = Math.min(7, Math.max(1.5, 1800 / tr.z));
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+      // core pass
+      ctx.strokeStyle = lg;
+      ctx.lineWidth = Math.min(Math.max(0.8, 900 / tr.z), 2.6);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    }
+
+    // ---- floating particles ----
+    for (i = 0; i < particles.length; i++) {
+      var pt = particles[i];
+      var py = pt.y + Math.sin(tSec * pt.sp + pt.ph) * 18;
+      var pp = project(pt.x, py, pt.z);
+      if (!pp) continue;
+      var pa = depthAlpha(pt.z, 0.55) * (0.5 + 0.5 * Math.sin(tSec * 0.9 + pt.ph));
+      var pr = Math.min(Math.max(500 / pt.z, 0.5), 2.4);
+      ctx.fillStyle = (pt.gold ? "rgba(212,175,106," : "rgba(0,229,199,") + pa.toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.arc(pp.x, pp.y, pr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  var rafId = null;
+  function loop(time){
+    drawFrame(time);
+    if (running && !prefersReduced) rafId = requestAnimationFrame(loop);
+  }
+  rafId = requestAnimationFrame(loop);
+
+  document.addEventListener("visibilitychange", function(){
+    if (document.hidden) {
+      running = false;
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    } else if (!running) {
+      running = true;
+      if (!prefersReduced) rafId = requestAnimationFrame(loop);
+    }
+  });
+
+  /* ================= init ================= */
+  applyLang();
+})();
+</script>
+</body>
+</html>
