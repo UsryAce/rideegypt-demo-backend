@@ -18,9 +18,13 @@ zero native dependencies, deploy anywhere.
 
 ```bash
 npm install
+npm run seed   # optional: fill the platform with a week of demo activity
 npm start
 # 🚕 Rahal Go API running on http://0.0.0.0:4000
 ```
+
+The rider app at `/app/` is an installable PWA (manifest + service worker + offline shell) —
+on a phone, "Add to Home Screen" gives a standalone full-screen app with its own icon.
 
 ### Environment variables
 

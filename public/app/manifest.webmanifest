@@ -1,0 +1,19 @@
+{
+  "name": "Rahal Go",
+  "short_name": "Rahal Go",
+  "description": "Rahal Go — ride-hailing for Qatar. Book, track and pay in seconds.",
+  "id": "/app/",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070B14",
+  "theme_color": "#070B14",
+  "lang": "en",
+  "dir": "auto",
+  "categories": ["travel", "transportation"],
+  "icons": [
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+    {"src": "icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable"}
+  ]
+}
