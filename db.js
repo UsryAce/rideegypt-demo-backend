@@ -62,7 +62,6 @@ module.exports = {
     return u;
   },
   updateUser(id, patch) {
-    const u = data.findUserById ? data.findUserById(id) : data.users.find(x => x.id === id);
     const user = data.users.find(x => x.id === id);
     if (!user) return null;
     Object.assign(user, patch);
@@ -95,6 +94,16 @@ module.exports = {
   },
   ridesForUser(userId) {
     return data.rides.filter(r => r.userId === userId);
+  },
+  findRide(id, userId) {
+    return data.rides.find(r => r.id === id && r.userId === userId);
+  },
+  updateRide(id, userId, patch) {
+    const ride = data.rides.find(r => r.id === id && r.userId === userId);
+    if (!ride) return null;
+    Object.assign(ride, patch);
+    save();
+    return ride;
   },
 
   // Transactions

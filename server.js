@@ -25,7 +25,7 @@ async function sendSms(phone, code) {
     await twilio.messages.create({
       to: phone.startsWith('+') ? phone : `+2${phone}`,
       from: TWILIO_FROM,
-      body: `Your Ride Egypt verification code is ${code}`,
+      body: `Your Rahal Go verification code is ${code}`,
     });
     return true;
   } catch (e) {
@@ -54,9 +54,30 @@ function publicUser(u) {
   return {id, phone, role, name, email, city, language, rating, walletBalance, createdAt};
 }
 
+// ---- Ride types & pricing (EGP) ----
+const RIDE_TYPES = [
+  {id: 'go', name: 'Go', description: 'Affordable everyday rides', base: 15, perKm: 4.5, seats: 4},
+  {id: 'comfort', name: 'Comfort', description: 'Newer cars, top drivers', base: 25, perKm: 6.5, seats: 4},
+  {id: 'xl', name: 'XL', description: 'Vans for up to 6 people', base: 35, perKm: 9, seats: 6},
+  {id: 'scooter', name: 'Scooter', description: 'Beat the traffic', base: 10, perKm: 3, seats: 1},
+];
+
+function estimateFare(typeId, distanceKm) {
+  const type = RIDE_TYPES.find(t => t.id === typeId) || RIDE_TYPES[0];
+  const km = Math.max(1, Number(distanceKm) || 5);
+  return {
+    type: type.name,
+    typeId: type.id,
+    distanceKm: km,
+    price: Math.round(type.base + type.perKm * km),
+    currency: 'EGP',
+    etaMinutes: Math.max(3, Math.round(km * 2.5)),
+  };
+}
+
 // ---- Health ----
 app.get('/api/health', (req, res) => {
-  res.json({ok: true, service: 'RideEgypt API', users: db.data.users.length});
+  res.json({ok: true, service: 'Rahal Go API', users: db.data.users.length});
 });
 
 // ---- Auth: request OTP ----
@@ -131,27 +152,51 @@ app.post('/api/wallet/topup', auth, (req, res) => {
   res.json({balance: newBalance, transactions: db.transactionsForUser(req.userId)});
 });
 
+// ---- Ride types & fare estimate ----
+app.get('/api/ride-types', (req, res) => {
+  res.json({types: RIDE_TYPES});
+});
+
+app.get('/api/rides/estimate', auth, (req, res) => {
+  const {type, distanceKm} = req.query;
+  res.json({estimate: estimateFare(type, distanceKm)});
+});
+
 // ---- Rides ----
+const DEMO_DRIVERS = [
+  {name: 'Ahmed Hassan', car: 'Toyota Corolla', plate: 'س ط ب 4821', rating: 4.9},
+  {name: 'Mohamed Salah', car: 'Hyundai Elantra', plate: 'م ن ق 1573', rating: 4.8},
+  {name: 'Karim Adel', car: 'Kia Cerato', plate: 'د و ر 9264', rating: 4.7},
+  {name: 'Omar Farouk', car: 'Nissan Sunny', plate: 'ج ل ع 3417', rating: 4.9},
+];
+
 app.get('/api/rides', auth, (req, res) => {
   res.json({rides: db.ridesForUser(req.userId)});
 });
 
 app.post('/api/rides', auth, (req, res) => {
   const {from, to, type, price, paymentMethod} = req.body;
+  const fare = Number(price);
+  if (!Number.isFinite(fare) || fare < 0) {
+    return res.status(400).json({error: 'Invalid price'});
+  }
   const user = db.findUserById(req.userId);
   if (paymentMethod === 'wallet') {
-    if (user.walletBalance < price) {
+    if (user.walletBalance < fare) {
       return res.status(400).json({error: 'Insufficient wallet balance'});
     }
-    db.updateUser(req.userId, {walletBalance: user.walletBalance - price});
+    db.updateUser(req.userId, {walletBalance: user.walletBalance - fare});
   }
+  const driver = DEMO_DRIVERS[Math.floor(Math.random() * DEMO_DRIVERS.length)];
   const ride = db.createRide({
     userId: req.userId,
     from: from || 'Maadi, Cairo',
     to: to || 'Cairo International Airport',
     type: type || 'Comfort',
-    price: Number(price) || 0,
-    driver: 'Ahmed Hassan',
+    price: fare,
+    paymentMethod: paymentMethod || 'cash',
+    driver: driver.name,
+    driverInfo: driver,
     status: 'matched',
   });
   db.addTransaction({
@@ -163,8 +208,62 @@ app.post('/api/rides', auth, (req, res) => {
   res.json({ride});
 });
 
+app.get('/api/rides/:id', auth, (req, res) => {
+  const ride = db.findRide(req.params.id, req.userId);
+  if (!ride) return res.status(404).json({error: 'Ride not found'});
+  res.json({ride});
+});
+
+app.post('/api/rides/:id/cancel', auth, (req, res) => {
+  const ride = db.findRide(req.params.id, req.userId);
+  if (!ride) return res.status(404).json({error: 'Ride not found'});
+  if (ride.status === 'completed' || ride.status === 'cancelled') {
+    return res.status(400).json({error: `Ride already ${ride.status}`});
+  }
+  // Refund wallet payments on cancellation
+  if (ride.paymentMethod === 'wallet' && ride.price > 0) {
+    const user = db.findUserById(req.userId);
+    db.updateUser(req.userId, {walletBalance: user.walletBalance + ride.price});
+    db.addTransaction({
+      userId: req.userId,
+      icon: 'refund',
+      title: `Refund • Cancelled ${ride.type} Ride`,
+      amount: ride.price,
+    });
+  }
+  const updated = db.updateRide(ride.id, req.userId, {status: 'cancelled'});
+  res.json({ride: updated});
+});
+
+app.post('/api/rides/:id/complete', auth, (req, res) => {
+  const ride = db.findRide(req.params.id, req.userId);
+  if (!ride) return res.status(404).json({error: 'Ride not found'});
+  if (ride.status === 'completed' || ride.status === 'cancelled') {
+    return res.status(400).json({error: `Ride already ${ride.status}`});
+  }
+  const updated = db.updateRide(ride.id, req.userId, {
+    status: 'completed',
+    completedAt: new Date().toISOString(),
+  });
+  res.json({ride: updated});
+});
+
+app.post('/api/rides/:id/rate', auth, (req, res) => {
+  const ride = db.findRide(req.params.id, req.userId);
+  if (!ride) return res.status(404).json({error: 'Ride not found'});
+  if (ride.status !== 'completed') {
+    return res.status(400).json({error: 'Only completed rides can be rated'});
+  }
+  const rating = Number(req.body.rating);
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({error: 'Rating must be between 1 and 5'});
+  }
+  const updated = db.updateRide(ride.id, req.userId, {rating, comment: req.body.comment || ''});
+  res.json({ride: updated});
+});
+
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🚕 RideEgypt API running on http://0.0.0.0:${PORT}`);
+  console.log(`\n🚕 Rahal Go API running on http://0.0.0.0:${PORT}`);
   console.log(`   Health: http://localhost:${PORT}/api/health`);
   console.log(`   DEV_MODE=${DEV_MODE} (OTP codes returned in API response)\n`);
 });
