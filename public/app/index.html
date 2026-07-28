@@ -1,0 +1,1968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070B14">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rahal Go">
+<title>Rahal Go — رحال جو</title>
+<script>
+  if ('serviceWorker' in navigator) {
+    addEventListener('load', () => navigator.serviceWorker.register('/app/sw.js').catch(() => {}));
+  }
+</script>
+<style>
+  :root{
+    --bg:#070B14;
+    --maroon:#8A1538;
+    --maroon-glow:rgba(220,60,105,.55);
+    --gold:#D4AF6A;
+    --aqua:#00E5C7;
+    --ink:#EAF0FA;
+    --muted:#8B96AC;
+    --glass:rgba(255,255,255,.055);
+    --glass-strong:rgba(255,255,255,.09);
+    --line:rgba(255,255,255,.12);
+    --danger:#FF5C7A;
+    --radius:18px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:var(--bg);color:var(--ink);font-family:var(--font);
+    overflow-x:hidden;min-height:100dvh;
+  }
+  button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+  button{cursor:pointer;border:none;background:none}
+  input,select,textarea{outline:none}
+  ::placeholder{color:var(--muted);opacity:.8}
+
+  /* ambient background */
+  #ambient{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+  #ambient .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.5}
+  #ambient .b1{width:60vmax;height:60vmax;left:-20vmax;top:-25vmax;background:radial-gradient(circle,#2A0A1E 0%,transparent 70%);animation:drift1 26s ease-in-out infinite alternate}
+  #ambient .b2{width:50vmax;height:50vmax;right:-18vmax;bottom:-20vmax;background:radial-gradient(circle,#04303A 0%,transparent 70%);animation:drift2 32s ease-in-out infinite alternate}
+  #ambient .b3{width:34vmax;height:34vmax;left:35vw;top:40vh;background:radial-gradient(circle,rgba(212,175,106,.12) 0%,transparent 70%);animation:drift1 40s ease-in-out infinite alternate-reverse}
+  @keyframes drift1{from{transform:translate(0,0) scale(1)}to{transform:translate(8vmax,6vmax) scale(1.15)}}
+  @keyframes drift2{from{transform:translate(0,0) scale(1.1)}to{transform:translate(-7vmax,-5vmax) scale(.95)}}
+
+  /* phone column */
+  #phone{
+    position:relative;z-index:1;max-width:430px;margin:0 auto;min-height:100dvh;
+    display:flex;flex-direction:column;
+    background:rgba(7,11,20,.55);
+    box-shadow:0 0 80px rgba(0,0,0,.55);
+  }
+  @media (min-width:480px){
+    #phone{border-left:1px solid rgba(255,255,255,.06);border-right:1px solid rgba(255,255,255,.06)}
+  }
+
+  /* views */
+  .view{display:none;flex-direction:column;flex:1;min-height:100dvh;padding:22px 18px 110px}
+  .view.active{display:flex;animation:viewIn .38s cubic-bezier(.22,.9,.3,1)}
+  @keyframes viewIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+  .view.no-pad{padding:0}
+
+  h1.screen-title{font-size:24px;font-weight:800;letter-spacing:.3px;margin-bottom:16px}
+
+  /* glass card */
+  .glass{
+    background:var(--glass);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    backdrop-filter:blur(16px);
+    -webkit-backdrop-filter:blur(16px);
+    box-shadow:0 8px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.07);
+  }
+
+  /* primary button */
+  .btn-primary{
+    display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+    padding:16px;border-radius:16px;font-size:17px;font-weight:800;color:#fff;
+    background:linear-gradient(135deg,#A81C46 0%,var(--maroon) 55%,#5E0E26 100%);
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 0 24px var(--maroon-glow),0 10px 26px rgba(0,0,0,.45);
+    transition:transform .15s ease, box-shadow .3s ease, opacity .2s;
+    position:relative;overflow:hidden;
+  }
+  .btn-primary::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.18) 50%,transparent 70%);transform:translateX(-120%);animation:sheen 3.4s ease-in-out infinite}
+  @keyframes sheen{0%,60%{transform:translateX(-120%)}90%,100%{transform:translateX(120%)}}
+  .btn-primary:active{transform:scale(.97)}
+  .btn-primary:disabled{opacity:.45;box-shadow:none;cursor:default}
+  .btn-ghost{
+    display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    padding:13px;border-radius:14px;font-weight:700;color:var(--ink);
+    background:var(--glass);border:1px solid var(--line);
+    transition:transform .15s;
+  }
+  .btn-ghost:active{transform:scale(.97)}
+  .btn-danger{color:var(--danger);border-color:rgba(255,92,122,.35)}
+
+  /* spinner + loading */
+  .spinner{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(255,255,255,.25);border-top-color:#fff;animation:spin .7s linear infinite;flex:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  button.loading{pointer-events:none;opacity:.75}
+  button.loading .btn-label{opacity:.6}
+
+  /* inputs */
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+  html[dir="rtl"] .field label{letter-spacing:0}
+  .input{
+    width:100%;padding:14px 15px;border-radius:14px;font-size:16px;color:var(--ink);
+    background:rgba(255,255,255,.05);border:1px solid var(--line);
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .input:focus{border-color:var(--aqua);box-shadow:0 0 0 3px rgba(0,229,199,.12)}
+  textarea.input{resize:none;min-height:80px}
+  select.input option{background:#0D1425;color:var(--ink)}
+  input[type="datetime-local"].input{color-scheme:dark}
+
+  /* ---------- SPLASH ---------- */
+  #view-splash{align-items:center;justify-content:center;padding:0}
+  .wordmark{font-size:44px;font-weight:900;letter-spacing:1px;
+    background:linear-gradient(100deg,var(--gold) 20%,#FFF3D6 40%,var(--gold) 60%,#9A7B45 80%);
+    background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+    animation:shimmer 1.6s linear infinite;
+  }
+  @keyframes shimmer{from{background-position:180% 0}to{background-position:-40% 0}}
+  .splash-sub{margin-top:12px;color:var(--muted);font-size:14px;letter-spacing:3px;text-transform:uppercase;animation:fadeIn 1s .3s both}
+  html[dir="rtl"] .splash-sub{letter-spacing:1px}
+  .splash-ring{width:70px;height:70px;border-radius:50%;margin-bottom:26px;position:relative;
+    border:1.5px solid rgba(212,175,106,.35);display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 34px rgba(212,175,106,.25), inset 0 0 22px rgba(212,175,106,.12);
+    animation:pulseRing 1.4s ease-in-out infinite;
+  }
+  @keyframes pulseRing{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+  /* ---------- LOGIN / OTP ---------- */
+  #view-login,#view-otp{justify-content:center}
+  .auth-head{margin-bottom:26px}
+  .auth-head .mini-mark{font-size:26px;font-weight:900;
+    background:linear-gradient(100deg,var(--gold),#FFF3D6,var(--gold));background-size:200% 100%;
+    -webkit-background-clip:text;background-clip:text;color:transparent;animation:shimmer 4s linear infinite;margin-bottom:18px}
+  .auth-head h2{font-size:26px;font-weight:800;margin-bottom:8px}
+  .auth-head p{color:var(--muted);font-size:15px;line-height:1.5}
+  .phone-row{display:flex;gap:10px;margin-bottom:16px}
+  .prefix-chip{display:flex;align-items:center;gap:7px;padding:0 14px;border-radius:14px;font-weight:800;font-size:16px;
+    background:rgba(212,175,106,.1);border:1px solid rgba(212,175,106,.4);color:var(--gold);flex:none}
+  .phone-row .input{flex:1;letter-spacing:2px;font-weight:700;direction:ltr;text-align:start}
+  html[dir="rtl"] .phone-row .input{text-align:right}
+  .otp-boxes{display:flex;gap:9px;justify-content:center;margin:26px 0 14px;direction:ltr}
+  .otp-box{width:48px;height:58px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    font-size:24px;font-weight:800;background:rgba(255,255,255,.05);border:1px solid var(--line);
+    transition:all .25s;color:var(--aqua)}
+  .otp-box.filled{border-color:var(--aqua);box-shadow:0 0 16px rgba(0,229,199,.35);animation:popIn .3s cubic-bezier(.3,1.6,.5,1)}
+  @keyframes popIn{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+  .dev-note{display:flex;align-items:center;justify-content:center;gap:7px;color:var(--gold);font-size:13px;margin-bottom:20px;opacity:0;transition:opacity .5s}
+  .dev-note.show{opacity:1}
+  .dev-note .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold);animation:pulseRing 1.2s infinite}
+  .link-btn{color:var(--aqua);font-weight:700;font-size:14px;padding:10px}
+
+  /* ---------- HOME ---------- */
+  .greeting{margin-bottom:18px}
+  .greeting .hi{color:var(--muted);font-size:14px}
+  .greeting .name{font-size:24px;font-weight:800}
+  .route-card{padding:16px;margin-bottom:16px}
+  .route-inputs{display:flex;gap:12px}
+  .route-rail{display:flex;flex-direction:column;align-items:center;padding-top:20px;flex:none}
+  .route-rail .p1{width:10px;height:10px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px var(--gold)}
+  .route-rail .p2{width:10px;height:10px;border-radius:2px;background:var(--aqua);box-shadow:0 0 10px var(--aqua)}
+  .route-rail .dash{flex:1;width:1.5px;margin:5px 0;background:repeating-linear-gradient(to bottom,var(--muted) 0 4px,transparent 4px 9px)}
+  .route-fields{flex:1;min-width:0}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none;-ms-overflow-style:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;display:flex;align-items:center;gap:6px;padding:9px 14px;border-radius:999px;font-size:13.5px;font-weight:700;
+    background:var(--glass);border:1px solid var(--line);color:var(--ink);transition:all .2s}
+  .chip:active{transform:scale(.95)}
+  .chip svg{flex:none}
+  .section-label{font-size:13px;color:var(--muted);font-weight:800;letter-spacing:.6px;text-transform:uppercase;margin:16px 0 10px}
+  html[dir="rtl"] .section-label{letter-spacing:0}
+  .slider-row{display:flex;align-items:center;gap:14px;padding:14px 16px}
+  .slider-row output{font-weight:800;color:var(--aqua);min-width:56px;text-align:center;font-size:15px}
+  input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:4px;background:linear-gradient(90deg,var(--aqua),rgba(0,229,199,.15));outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:var(--aqua);box-shadow:0 0 14px rgba(0,229,199,.7);border:3px solid #04222B;cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--aqua);box-shadow:0 0 14px rgba(0,229,199,.7);border:3px solid #04222B;cursor:pointer}
+  .ride-carousel{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x mandatory;scrollbar-width:none}
+  .ride-carousel::-webkit-scrollbar{display:none}
+  .ride-card{flex:none;width:150px;padding:14px;scroll-snap-align:start;cursor:pointer;transition:all .25s;position:relative}
+  .ride-card .rname{font-weight:800;font-size:15px;margin-bottom:2px}
+  .ride-card .rdesc{font-size:11.5px;color:var(--muted);line-height:1.35;min-height:31px;margin-bottom:8px}
+  .ride-card .rprice{font-size:18px;font-weight:900;color:var(--gold)}
+  .ride-card .rmeta{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .ride-card .ricon{margin-bottom:8px;color:var(--aqua)}
+  .ride-card.selected{border-color:var(--aqua);background:rgba(0,229,199,.07);box-shadow:0 0 22px rgba(0,229,199,.25), inset 0 1px 0 rgba(255,255,255,.08);transform:translateY(-3px)}
+  .seg{display:flex;padding:5px;gap:5px}
+  .seg button{flex:1;padding:11px;border-radius:12px;font-weight:800;font-size:14px;color:var(--muted);transition:all .25s}
+  .seg button.on{background:linear-gradient(135deg,rgba(0,229,199,.16),rgba(0,229,199,.06));color:var(--aqua);box-shadow:0 0 14px rgba(0,229,199,.15);border:1px solid rgba(0,229,199,.35)}
+  .seg button .sub{display:block;font-size:11px;font-weight:700;opacity:.8;margin-top:2px}
+  .sched-row{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;margin-top:12px}
+  .toggle{width:48px;height:28px;border-radius:99px;background:rgba(255,255,255,.1);border:1px solid var(--line);position:relative;transition:background .25s;flex:none}
+  .toggle::after{content:"";position:absolute;top:2.5px;inset-inline-start:3px;width:21px;height:21px;border-radius:50%;background:#fff;transition:transform .25s cubic-bezier(.3,1.4,.5,1)}
+  .toggle.on{background:rgba(0,229,199,.35);border-color:var(--aqua)}
+  .toggle.on::after{transform:translateX(20px);background:var(--aqua);box-shadow:0 0 10px var(--aqua)}
+  html[dir="rtl"] .toggle.on::after{transform:translateX(-20px)}
+  #schedWrap{overflow:hidden;max-height:0;transition:max-height .35s ease;margin-top:0}
+  #schedWrap.open{max-height:90px;margin-top:12px}
+  #bookBtn{margin-top:18px}
+
+  /* ---------- TRACKING ---------- */
+  #view-tracking{position:relative;padding:0;min-height:100dvh}
+  #trackCanvas{position:absolute;inset:0;width:100%;height:100%}
+  .track-top{position:absolute;top:0;left:0;right:0;padding:18px;display:flex;align-items:center;gap:12px;z-index:3}
+  .icon-btn{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;
+    background:rgba(7,11,20,.7);border:1px solid var(--line);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+  .track-route-pill{flex:1;min-width:0;padding:10px 14px;border-radius:14px;font-size:12.5px;
+    background:rgba(7,11,20,.7);border:1px solid var(--line);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+  .track-route-pill div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .track-route-pill .to{color:var(--aqua)}
+  html[dir="rtl"] #trackBack svg{transform:scaleX(-1)}
+  .status-card{position:absolute;left:14px;right:14px;bottom:16px;z-index:3;padding:18px;background:rgba(10,15,26,.82)}
+  .status-phase{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px}
+  .status-phase .phase{font-size:19px;font-weight:800}
+  .status-phase .eta-chip{color:var(--aqua);font-weight:800;font-size:14px;white-space:nowrap}
+  .status-ar{color:var(--gold);font-size:14px;margin-bottom:12px}
+  .progress-track{height:6px;border-radius:6px;background:rgba(255,255,255,.09);overflow:hidden;margin-bottom:14px}
+  .progress-fill{height:100%;width:0%;border-radius:6px;background:linear-gradient(90deg,var(--maroon),var(--gold),var(--aqua));
+    box-shadow:0 0 12px rgba(0,229,199,.5);transition:width 1.2s ease;position:relative}
+  .progress-fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);background-size:60px 100%;animation:progSheen 1.6s linear infinite}
+  @keyframes progSheen{from{background-position:-60px 0}to{background-position:220px 0}}
+  .driver-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .avatar{width:46px;height:46px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;
+    background:linear-gradient(135deg,var(--maroon),#4A0B1E);border:1.5px solid rgba(212,175,106,.5);box-shadow:0 0 14px var(--maroon-glow);color:#FFD9A8}
+  .driver-row .dname{font-weight:800;font-size:15px}
+  .driver-row .dcar{color:var(--muted);font-size:12.5px}
+  .driver-row .plate{margin-inline-start:auto;text-align:center;flex:none}
+  .driver-row .plate .num{font-weight:900;letter-spacing:1px;font-size:14px;padding:4px 10px;border-radius:8px;background:rgba(212,175,106,.12);border:1px solid rgba(212,175,106,.45);color:var(--gold);direction:ltr}
+  .driver-row .drating{font-size:12px;color:var(--gold);margin-top:4px}
+
+  /* ---------- WALLET ---------- */
+  .balance-card{padding:24px 20px;text-align:center;margin-bottom:18px;position:relative;overflow:hidden}
+  .balance-card::before{content:"";position:absolute;inset:-40%;background:conic-gradient(from 180deg,transparent 60%,rgba(212,175,106,.14),transparent 80%);animation:rotBg 9s linear infinite;pointer-events:none}
+  @keyframes rotBg{to{transform:rotate(360deg)}}
+  .balance-label{color:var(--muted);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+  html[dir="rtl"] .balance-label{letter-spacing:0}
+  .balance-amount{font-size:44px;font-weight:900;margin:6px 0 2px;color:var(--gold);text-shadow:0 0 26px rgba(212,175,106,.45);direction:ltr}
+  .balance-amount small{font-size:18px;font-weight:800;color:var(--muted)}
+  .topup-chips{display:flex;gap:9px;margin-bottom:6px}
+  .topup-chips .chip{flex:1;justify-content:center;padding:12px 4px;font-size:15px;font-weight:800;color:var(--aqua);border-color:rgba(0,229,199,.3)}
+  .promo-row{display:flex;gap:9px}
+  .promo-row .input{flex:1;text-transform:uppercase}
+  .promo-row button{flex:none;padding:0 20px;border-radius:14px;font-weight:800;color:#081018;
+    background:linear-gradient(135deg,var(--aqua),#00B39B);box-shadow:0 0 16px rgba(0,229,199,.35)}
+  .tx-list{display:flex;flex-direction:column;gap:9px}
+  .tx{display:flex;align-items:center;gap:13px;padding:13px 15px}
+  .tx .tx-ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+  .tx .tx-body{flex:1;min-width:0}
+  .tx .tx-title{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tx .tx-date{color:var(--muted);font-size:12px;margin-top:2px}
+  .tx .tx-amt{font-weight:900;font-size:15px;white-space:nowrap;direction:ltr}
+  .tx .tx-amt.pos{color:var(--aqua);text-shadow:0 0 12px rgba(0,229,199,.4)}
+  .tx .tx-amt.neg{color:#E8547B}
+
+  /* ---------- TRIPS ---------- */
+  .trip-card{padding:16px;margin-bottom:12px}
+  .trip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .pill{padding:5px 12px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid}
+  .pill.st-completed{color:var(--aqua);border-color:rgba(0,229,199,.4);background:rgba(0,229,199,.08)}
+  .pill.st-cancelled{color:var(--danger);border-color:rgba(255,92,122,.4);background:rgba(255,92,122,.08)}
+  .pill.st-active{color:var(--gold);border-color:rgba(212,175,106,.45);background:rgba(212,175,106,.1);animation:pillPulse 1.6s ease-in-out infinite}
+  @keyframes pillPulse{0%,100%{box-shadow:0 0 0 rgba(212,175,106,0)}50%{box-shadow:0 0 14px rgba(212,175,106,.45)}}
+  .trip-price{font-weight:900;color:var(--gold);font-size:16px;white-space:nowrap;direction:ltr}
+  .trip-route{font-size:14px;line-height:1.6}
+  .trip-route .rr{display:flex;align-items:center;gap:9px;min-width:0}
+  .trip-route .rr span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .trip-route .d1{width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold);flex:none}
+  .trip-route .d2{width:8px;height:8px;border-radius:2px;background:var(--aqua);box-shadow:0 0 8px var(--aqua);flex:none}
+  .trip-meta{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12.5px;margin-top:9px;flex-wrap:wrap}
+  .trip-actions{margin-top:12px;display:flex;gap:9px}
+  .trip-actions .btn-ghost{padding:10px;font-size:14px}
+  .trip-actions .live{color:var(--aqua);border-color:rgba(0,229,199,.4)}
+  .trip-actions .rateb{color:var(--gold);border-color:rgba(212,175,106,.45)}
+  .stars-inline{color:var(--gold);letter-spacing:2px;font-size:13px}
+  .empty-state{text-align:center;color:var(--muted);padding:60px 20px;font-size:15px;line-height:1.6}
+
+  /* ---------- PROFILE ---------- */
+  .place-row{display:flex;align-items:center;gap:12px;padding:12px 15px;margin-bottom:9px}
+  .place-row .pi{color:var(--gold);flex:none}
+  .place-row .pb{flex:1;min-width:0}
+  .place-row .pl{font-weight:800;font-size:14.5px}
+  .place-row .pa{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .place-row .del{color:var(--danger);padding:8px;flex:none;border-radius:10px}
+  .add-place-grid{display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px}
+  .add-place-grid button{padding:0 16px;border-radius:14px;font-weight:800;color:#081018;background:linear-gradient(135deg,var(--aqua),#00B39B)}
+  @media (max-width:370px){.add-place-grid{grid-template-columns:1fr 1fr}.add-place-grid button{grid-column:1/-1;padding:12px}}
+  .lang-seg{margin-bottom:16px}
+
+  /* ---------- NAV ---------- */
+  #nav{
+    position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+    width:min(402px,calc(100% - 28px));z-index:20;
+    display:none;justify-content:space-around;padding:10px 6px;
+    background:rgba(10,15,26,.78);border:1px solid var(--line);border-radius:22px;
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    box-shadow:0 12px 34px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  #nav.show{display:flex;animation:navIn .4s cubic-bezier(.25,1.2,.4,1)}
+  @keyframes navIn{from{transform:translate(-50%,60px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+  #nav button{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:10.5px;font-weight:700;padding:5px 12px;border-radius:14px;transition:color .25s}
+  #nav button svg{transition:filter .25s}
+  #nav button.on{color:var(--aqua)}
+  #nav button.on svg{filter:drop-shadow(0 0 7px rgba(0,229,199,.9))}
+
+  /* ---------- TOASTS / MODALS ---------- */
+  #toasts{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:60;width:min(390px,calc(100% - 30px));display:flex;flex-direction:column;gap:8px;pointer-events:none}
+  .toast{padding:13px 16px;border-radius:14px;font-size:14px;font-weight:600;line-height:1.4;
+    background:rgba(12,18,30,.9);border:1px solid var(--line);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    box-shadow:0 10px 28px rgba(0,0,0,.5);animation:toastIn .35s cubic-bezier(.3,1.3,.5,1);display:flex;gap:10px;align-items:flex-start}
+  .toast.err{border-color:rgba(255,92,122,.5);box-shadow:0 0 18px rgba(255,92,122,.25),0 10px 28px rgba(0,0,0,.5)}
+  .toast.ok{border-color:rgba(0,229,199,.5);box-shadow:0 0 18px rgba(0,229,199,.2),0 10px 28px rgba(0,0,0,.5)}
+  .toast.out{animation:toastOut .3s forwards}
+  @keyframes toastIn{from{opacity:0;transform:translateY(-16px) scale(.95)}to{opacity:1;transform:none}}
+  @keyframes toastOut{to{opacity:0;transform:translateY(-12px) scale(.96)}}
+  #modalWrap{position:fixed;inset:0;z-index:50;display:none;align-items:flex-end;justify-content:center;background:rgba(3,5,10,.6);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+  #modalWrap.show{display:flex;animation:fadeIn .25s}
+  #modalCard{width:min(430px,100%);margin:0 10px 10px;padding:24px 20px;border-radius:24px;background:rgba(13,19,32,.96);
+    animation:sheetIn .38s cubic-bezier(.25,1.1,.4,1)}
+  @keyframes sheetIn{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
+  .modal-title{font-size:19px;font-weight:800;margin-bottom:6px}
+  .modal-body{color:var(--muted);font-size:14.5px;line-height:1.55;margin-bottom:18px}
+  .modal-actions{display:flex;gap:10px}
+  .stars-pick{display:flex;justify-content:center;gap:10px;margin:14px 0 18px;direction:ltr}
+  .stars-pick button{font-size:0;padding:4px;transition:transform .18s}
+  .stars-pick button:active{transform:scale(1.25)}
+  .stars-pick svg{width:38px;height:38px;fill:rgba(255,255,255,.14);transition:fill .2s,filter .2s}
+  .stars-pick button.lit svg{fill:var(--gold);filter:drop-shadow(0 0 9px rgba(212,175,106,.8))}
+
+  .skeleton{color:transparent!important;border-radius:8px;background:linear-gradient(90deg,rgba(255,255,255,.06),rgba(255,255,255,.14),rgba(255,255,255,.06));background-size:200% 100%;animation:skel 1.2s linear infinite}
+  @keyframes skel{from{background-position:180% 0}to{background-position:-20% 0}}
+  .center-load{display:flex;justify-content:center;padding:34px}
+  .center-load .spinner{width:26px;height:26px;border-width:3px;border-top-color:var(--aqua)}
+</style>
+</head>
+<body>
+<div id="ambient"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+
+<div id="phone">
+
+  <!-- SPLASH -->
+  <section class="view no-pad" id="view-splash">
+    <div class="splash-ring">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#D4AF6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h-2v-5l2-6h10l4 6h2v5h-2"/><circle cx="7.5" cy="17" r="2"/><circle cx="17.5" cy="17" r="2"/><path d="M9.5 17h6"/></svg>
+    </div>
+    <div class="wordmark" id="splashMark">Rahal Go</div>
+    <div class="splash-sub" data-i18n="tagline">Your ride across Qatar</div>
+  </section>
+
+  <!-- LOGIN -->
+  <section class="view" id="view-login">
+    <div class="auth-head">
+      <div class="mini-mark">Rahal Go · رحال جو</div>
+      <h2 data-i18n="login_title">Welcome aboard</h2>
+      <p data-i18n="login_sub">Enter your Qatari phone number and we'll send you a one-time code.</p>
+    </div>
+    <div class="phone-row">
+      <div class="prefix-chip"><span>🇶🇦</span><span dir="ltr">+974</span></div>
+      <input class="input" id="phoneInput" type="tel" inputmode="numeric" autocomplete="tel" maxlength="12" placeholder="3XXX XXXX">
+    </div>
+    <button class="btn-primary" id="sendCodeBtn"><span class="btn-label" data-i18n="send_code">Send code</span></button>
+  </section>
+
+  <!-- OTP -->
+  <section class="view" id="view-otp">
+    <div class="auth-head">
+      <h2 data-i18n="otp_title">Verify your number</h2>
+      <p><span data-i18n="otp_sub">Enter the 6-digit code sent to</span> <b id="otpPhoneLabel" dir="ltr" style="color:var(--gold)"></b></p>
+    </div>
+    <div class="otp-boxes" id="otpBoxes"></div>
+    <div class="dev-note" id="devNote"><span class="dot"></span><span data-i18n="dev_note">Dev mode: code auto-filled</span></div>
+    <button class="btn-primary" id="verifyBtn"><span class="btn-label" data-i18n="verify">Verify &amp; continue</span></button>
+    <button class="link-btn" id="resendBtn" data-i18n="resend">Resend code</button>
+    <button class="link-btn" id="changeNumBtn" data-i18n="change_number" style="color:var(--muted)">Change number</button>
+  </section>
+
+  <!-- HOME -->
+  <section class="view" id="view-home">
+    <div class="greeting">
+      <div class="hi" id="greetTime">Good evening</div>
+      <div class="name" id="greetName">Rider</div>
+    </div>
+
+    <div class="glass route-card">
+      <div class="route-inputs">
+        <div class="route-rail"><div class="p1"></div><div class="dash"></div><div class="p2"></div></div>
+        <div class="route-fields">
+          <div class="field" style="margin-bottom:10px">
+            <label data-i18n="pickup">Pickup</label>
+            <input class="input" id="fromInput" value="West Bay, Doha">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label data-i18n="destination">Destination</label>
+            <input class="input" id="toInput" value="Hamad International Airport">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chips" id="placeChips"></div>
+
+    <div class="section-label" data-i18n="distance">Trip distance</div>
+    <div class="glass slider-row">
+      <input type="range" id="distSlider" min="1" max="40" step="1" value="12" aria-label="distance">
+      <output id="distOut">12 km</output>
+    </div>
+
+    <div class="section-label" data-i18n="choose_ride">Choose your ride</div>
+    <div class="ride-carousel" id="rideCarousel"></div>
+
+    <div class="section-label" data-i18n="payment">Payment</div>
+    <div class="glass seg" id="paySeg">
+      <button id="payCash" class="on"><span data-i18n="cash">Cash</span><span class="sub" data-i18n="pay_on_arrival">Pay on arrival</span></button>
+      <button id="payWallet"><span data-i18n="wallet">Wallet</span><span class="sub" id="payWalletBal">—</span></button>
+    </div>
+
+    <div class="glass sched-row">
+      <div>
+        <div style="font-weight:800;font-size:14.5px" data-i18n="schedule">Schedule for later</div>
+        <div style="color:var(--muted);font-size:12px" data-i18n="schedule_hint">Book up to 7 days ahead</div>
+      </div>
+      <button class="toggle" id="schedToggle" aria-label="schedule toggle"></button>
+    </div>
+    <div id="schedWrap"><input class="input" type="datetime-local" id="schedInput"></div>
+
+    <button class="btn-primary" id="bookBtn"><span class="btn-label" data-i18n="book">Book Rahal</span></button>
+  </section>
+
+  <!-- TRACKING -->
+  <section class="view no-pad" id="view-tracking">
+    <canvas id="trackCanvas"></canvas>
+    <div class="track-top">
+      <button class="icon-btn" id="trackBack" aria-label="back">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="track-route-pill">
+        <div id="trackFrom">—</div>
+        <div class="to" id="trackTo">—</div>
+      </div>
+    </div>
+    <div class="glass status-card" id="statusCard">
+      <div class="status-phase">
+        <div class="phase" id="phaseLabel">…</div>
+        <div class="eta-chip" id="etaLabel"></div>
+      </div>
+      <div class="status-ar" id="phaseSub"></div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="driver-row" id="driverRow" style="display:none">
+        <div class="avatar" id="driverAvatar">؟</div>
+        <div>
+          <div class="dname" id="driverName"></div>
+          <div class="dcar" id="driverCar"></div>
+        </div>
+        <div class="plate">
+          <div class="num" id="driverPlate"></div>
+          <div class="drating" id="driverRating"></div>
+        </div>
+      </div>
+      <button class="btn-ghost btn-danger" id="cancelRideBtn" style="display:none"><span class="btn-label" data-i18n="cancel_ride">Cancel ride</span></button>
+      <button class="btn-ghost" id="trackDoneBtn" style="display:none;color:var(--aqua);border-color:rgba(0,229,199,.4)" data-i18n="back_home">Back to home</button>
+    </div>
+  </section>
+
+  <!-- WALLET -->
+  <section class="view" id="view-wallet">
+    <h1 class="screen-title" data-i18n="wallet_title">Wallet</h1>
+    <div class="glass balance-card">
+      <div class="balance-label" data-i18n="balance">Balance</div>
+      <div class="balance-amount"><span id="balanceNum">0.00</span> <small id="balanceCur">QAR</small></div>
+    </div>
+    <div class="section-label" data-i18n="quick_topup">Quick top-up</div>
+    <div class="topup-chips" id="topupChips"></div>
+    <div class="section-label" data-i18n="promo">Promo code</div>
+    <div class="promo-row">
+      <input class="input" id="promoInput" data-i18n-ph="promo_ph" placeholder="Enter promo code" autocapitalize="characters">
+      <button id="promoBtn"><span class="btn-label" data-i18n="redeem">Redeem</span></button>
+    </div>
+    <div class="section-label" data-i18n="transactions">Transactions</div>
+    <div class="tx-list" id="txList"></div>
+  </section>
+
+  <!-- TRIPS -->
+  <section class="view" id="view-trips">
+    <h1 class="screen-title" data-i18n="trips_title">My trips</h1>
+    <div id="tripsList"></div>
+  </section>
+
+  <!-- PROFILE -->
+  <section class="view" id="view-profile">
+    <h1 class="screen-title" data-i18n="profile_title">Profile</h1>
+
+    <div class="section-label" data-i18n="language">Language</div>
+    <div class="glass seg lang-seg">
+      <button id="langEn">English</button>
+      <button id="langAr">العربية</button>
+    </div>
+
+    <div class="glass" style="padding:16px;margin-bottom:16px">
+      <div class="field">
+        <label data-i18n="name">Name</label>
+        <input class="input" id="profName">
+      </div>
+      <div class="field">
+        <label data-i18n="email">Email</label>
+        <input class="input" id="profEmail" type="email" dir="ltr">
+      </div>
+      <div class="field" style="margin-bottom:16px">
+        <label data-i18n="city">City</label>
+        <input class="input" id="profCity">
+      </div>
+      <button class="btn-primary" id="saveProfileBtn"><span class="btn-label" data-i18n="save">Save changes</span></button>
+    </div>
+
+    <div class="section-label" data-i18n="saved_places">Saved places</div>
+    <div id="placesList"></div>
+    <div class="glass" style="padding:13px;margin-top:4px">
+      <div class="add-place-grid">
+        <input class="input" id="newPlaceLabel" data-i18n-ph="label_ph" placeholder="Label (e.g. Home)">
+        <input class="input" id="newPlaceAddr" data-i18n-ph="address_ph" placeholder="Address">
+        <button id="addPlaceBtn"><span class="btn-label" data-i18n="add">Add</span></button>
+      </div>
+    </div>
+
+    <button class="btn-ghost btn-danger" id="logoutBtn" style="margin-top:22px" data-i18n="logout">Log out</button>
+  </section>
+</div>
+
+<!-- NAV -->
+<nav id="nav">
+  <button data-nav="home">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg>
+    <span data-i18n="nav_home">Home</span>
+  </button>
+  <button data-nav="trips">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h6.5a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7H16"/></svg>
+    <span data-i18n="nav_trips">Trips</span>
+  </button>
+  <button data-nav="wallet">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg>
+    <span data-i18n="nav_wallet">Wallet</span>
+  </button>
+  <button data-nav="profile">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.2-4 4.4-6 8-6s6.8 2 8 6"/></svg>
+    <span data-i18n="nav_profile">Profile</span>
+  </button>
+</nav>
+
+<div id="toasts"></div>
+<div id="modalWrap"><div class="glass" id="modalCard"></div></div>
+
+<script>
+'use strict';
+/* =============================================================
+   Rahal Go — rider SPA (single file, no dependencies)
+============================================================= */
+
+/* ---------------- i18n ---------------- */
+const I18N = {
+  en: {
+    tagline: 'Your ride across Qatar',
+    login_title: 'Welcome aboard',
+    login_sub: "Enter your Qatari phone number and we'll send you a one-time code.",
+    send_code: 'Send code',
+    otp_title: 'Verify your number',
+    otp_sub: 'Enter the 6-digit code sent to',
+    dev_note: 'Dev mode: code auto-filled',
+    verify: 'Verify & continue',
+    resend: 'Resend code',
+    change_number: 'Change number',
+    invalid_phone: 'Enter a valid Qatari number: 8 digits starting with 3, 5, 6 or 7',
+    invalid_code: 'Please enter the 6-digit code',
+    rate_limited: 'Too many attempts — please wait a moment and try again',
+    good_morning: 'Good morning',
+    good_afternoon: 'Good afternoon',
+    good_evening: 'Good evening',
+    pickup: 'Pickup',
+    destination: 'Destination',
+    distance: 'Trip distance',
+    km: 'km',
+    choose_ride: 'Choose your ride',
+    seats: 'seats',
+    min: 'min',
+    payment: 'Payment',
+    cash: 'Cash',
+    pay_on_arrival: 'Pay on arrival',
+    wallet: 'Wallet',
+    schedule: 'Schedule for later',
+    schedule_hint: 'Book up to 7 days ahead',
+    book: 'Book Rahal',
+    need_route: 'Please enter both pickup and destination',
+    need_type: 'Please choose a ride type',
+    need_sched: 'Please pick a future date and time',
+    ride_booked: 'Ride booked — finding your driver…',
+    cancel_ride: 'Cancel ride',
+    cancel_q: 'Cancel this ride?',
+    cancel_q_body: 'Your driver will be released and the trip will end.',
+    yes_cancel: 'Yes, cancel',
+    keep_ride: 'Keep ride',
+    ride_cancelled: 'Ride cancelled',
+    back_home: 'Back to home',
+    eta_in: 'in',
+    arrived_soon: 'almost there',
+    trip_completed: 'Trip completed',
+    rate_title: 'Rate your trip',
+    rate_sub: 'How was your ride with',
+    comment_ph: 'Add a comment (optional)',
+    submit_rating: 'Submit rating',
+    skip: 'Skip',
+    rating_thanks: 'Thanks for your feedback!',
+    pick_stars: 'Please tap a star rating first',
+    wallet_title: 'Wallet',
+    balance: 'Balance',
+    quick_topup: 'Quick top-up',
+    promo: 'Promo code',
+    promo_ph: 'Enter promo code',
+    redeem: 'Redeem',
+    transactions: 'Transactions',
+    no_transactions: 'No transactions yet',
+    topup_done: 'Wallet topped up',
+    promo_ok: 'Promo applied',
+    enter_promo: 'Enter a promo code first',
+    trips_title: 'My trips',
+    no_trips: 'No trips yet.\nBook your first Rahal from the Home tab!',
+    track_live: 'Track live',
+    rate: 'Rate',
+    driver: 'Driver',
+    scheduled_for: 'Scheduled for',
+    profile_title: 'Profile',
+    language: 'Language',
+    name: 'Name',
+    email: 'Email',
+    city: 'City',
+    save: 'Save changes',
+    profile_saved: 'Profile updated',
+    saved_places: 'Saved places',
+    no_places: 'No saved places yet — add one below.',
+    label_ph: 'Label (e.g. Home)',
+    address_ph: 'Address',
+    add: 'Add',
+    place_added: 'Place saved',
+    place_removed: 'Place removed',
+    need_place: 'Enter both a label and an address',
+    logout: 'Log out',
+    logout_q: 'Log out?',
+    logout_q_body: 'You will need to verify your phone number again to sign back in.',
+    yes_logout: 'Yes, log out',
+    stay: 'Stay',
+    nav_home: 'Home',
+    nav_trips: 'Trips',
+    nav_wallet: 'Wallet',
+    nav_profile: 'Profile',
+    err_generic: 'Something went wrong. Please try again.',
+    err_network: 'Network error — check your connection',
+    session_expired: 'Session expired — please sign in again',
+    currency: 'QAR',
+    st_scheduled: 'Scheduled',
+    st_matched: 'Driver matched',
+    st_arriving: 'Driver arriving',
+    st_in_progress: 'On the way',
+    st_completed: 'Completed',
+    st_cancelled: 'Cancelled'
+  },
+  ar: {
+    tagline: 'رحلتك في كل قطر',
+    login_title: 'أهلاً بك في رحال جو',
+    login_sub: 'أدخل رقم هاتفك القطري وسنرسل لك رمز تحقق لمرة واحدة.',
+    send_code: 'إرسال الرمز',
+    otp_title: 'تأكيد رقمك',
+    otp_sub: 'أدخل الرمز المكوّن من ٦ أرقام المُرسل إلى',
+    dev_note: 'وضع التطوير: تم إدخال الرمز تلقائياً',
+    verify: 'تأكيد ومتابعة',
+    resend: 'إعادة إرسال الرمز',
+    change_number: 'تغيير الرقم',
+    invalid_phone: 'أدخل رقماً قطرياً صحيحاً: ٨ أرقام يبدأ بـ 3 أو 5 أو 6 أو 7',
+    invalid_code: 'يرجى إدخال الرمز المكوّن من ٦ أرقام',
+    rate_limited: 'محاولات كثيرة — يرجى الانتظار قليلاً ثم المحاولة مجدداً',
+    good_morning: 'صباح الخير',
+    good_afternoon: 'طاب يومك',
+    good_evening: 'مساء الخير',
+    pickup: 'نقطة الانطلاق',
+    destination: 'الوجهة',
+    distance: 'مسافة الرحلة',
+    km: 'كم',
+    choose_ride: 'اختر رحلتك',
+    seats: 'مقاعد',
+    min: 'د',
+    payment: 'طريقة الدفع',
+    cash: 'نقداً',
+    pay_on_arrival: 'الدفع عند الوصول',
+    wallet: 'المحفظة',
+    schedule: 'حجز مسبق',
+    schedule_hint: 'احجز حتى ٧ أيام مقدماً',
+    book: 'احجز رحال',
+    need_route: 'يرجى إدخال نقطة الانطلاق والوجهة',
+    need_type: 'يرجى اختيار نوع الرحلة',
+    need_sched: 'يرجى اختيار تاريخ ووقت في المستقبل',
+    ride_booked: 'تم الحجز — جارٍ البحث عن سائق…',
+    cancel_ride: 'إلغاء الرحلة',
+    cancel_q: 'هل تريد إلغاء الرحلة؟',
+    cancel_q_body: 'سيتم إلغاء تعيين السائق وإنهاء الرحلة.',
+    yes_cancel: 'نعم، إلغاء',
+    keep_ride: 'متابعة الرحلة',
+    ride_cancelled: 'تم إلغاء الرحلة',
+    back_home: 'العودة للرئيسية',
+    eta_in: 'خلال',
+    arrived_soon: 'على وشك الوصول',
+    trip_completed: 'اكتملت الرحلة',
+    rate_title: 'قيّم رحلتك',
+    rate_sub: 'كيف كانت رحلتك مع',
+    comment_ph: 'أضف تعليقاً (اختياري)',
+    submit_rating: 'إرسال التقييم',
+    skip: 'تخطي',
+    rating_thanks: 'شكراً لتقييمك!',
+    pick_stars: 'يرجى اختيار عدد النجوم أولاً',
+    wallet_title: 'المحفظة',
+    balance: 'الرصيد',
+    quick_topup: 'شحن سريع',
+    promo: 'رمز ترويجي',
+    promo_ph: 'أدخل الرمز الترويجي',
+    redeem: 'استخدام',
+    transactions: 'المعاملات',
+    no_transactions: 'لا توجد معاملات بعد',
+    topup_done: 'تم شحن المحفظة',
+    promo_ok: 'تم تطبيق الرمز الترويجي',
+    enter_promo: 'أدخل الرمز الترويجي أولاً',
+    trips_title: 'رحلاتي',
+    no_trips: 'لا توجد رحلات بعد.\nاحجز أول رحلة رحال من الصفحة الرئيسية!',
+    track_live: 'تتبع مباشر',
+    rate: 'قيّم',
+    driver: 'السائق',
+    scheduled_for: 'مجدولة في',
+    profile_title: 'الملف الشخصي',
+    language: 'اللغة',
+    name: 'الاسم',
+    email: 'البريد الإلكتروني',
+    city: 'المدينة',
+    save: 'حفظ التغييرات',
+    profile_saved: 'تم تحديث الملف الشخصي',
+    saved_places: 'الأماكن المحفوظة',
+    no_places: 'لا توجد أماكن محفوظة بعد — أضف مكاناً أدناه.',
+    label_ph: 'الاسم (مثال: المنزل)',
+    address_ph: 'العنوان',
+    add: 'إضافة',
+    place_added: 'تم حفظ المكان',
+    place_removed: 'تم حذف المكان',
+    need_place: 'أدخل الاسم والعنوان معاً',
+    logout: 'تسجيل الخروج',
+    logout_q: 'تسجيل الخروج؟',
+    logout_q_body: 'ستحتاج إلى تأكيد رقم هاتفك مجدداً لتسجيل الدخول.',
+    yes_logout: 'نعم، تسجيل الخروج',
+    stay: 'البقاء',
+    nav_home: 'الرئيسية',
+    nav_trips: 'رحلاتي',
+    nav_wallet: 'المحفظة',
+    nav_profile: 'حسابي',
+    err_generic: 'حدث خطأ ما. يرجى المحاولة مجدداً.',
+    err_network: 'خطأ في الاتصال — تحقق من الشبكة',
+    session_expired: 'انتهت الجلسة — يرجى تسجيل الدخول مجدداً',
+    currency: 'ر.ق',
+    st_scheduled: 'مجدولة',
+    st_matched: 'تم إيجاد سائق',
+    st_arriving: 'السائق في الطريق إليك',
+    st_in_progress: 'الرحلة جارية',
+    st_completed: 'مكتملة',
+    st_cancelled: 'ملغاة'
+  }
+};
+
+/* ---------------- state ---------------- */
+const state = {
+  token: localStorage.getItem('rahal_token') || null,
+  user: null,
+  lang: localStorage.getItem('rahal_lang') || 'en',
+  view: null,
+  devCode: null,
+  authPhone: null,
+  rideTypes: [],
+  estimates: {},        // typeId -> estimate
+  selectedType: null,
+  payMethod: 'cash',
+  walletBalance: null,
+  schedOn: false,
+  places: [],
+  trackRideId: null
+};
+
+const $ = (id) => document.getElementById(id);
+function t(key) { return (I18N[state.lang] && I18N[state.lang][key]) || I18N.en[key] || key; }
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtQAR(n) {
+  const v = Number(n) || 0;
+  return v.toFixed(2).replace(/\.00$/, '');
+}
+function statusLabel(status) { return t('st_' + status) || status; }
+
+/* ---------------- toasts ---------------- */
+function toast(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type || '');
+  const icon = type === 'ok'
+    ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00E5C7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="M20 6 9 17l-5-5"/></svg>'
+    : (type === 'err'
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF5C7A" stroke-width="2.2" stroke-linecap="round" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5"/><circle cx="12" cy="16.4" r=".4" fill="#FF5C7A"/></svg>'
+      : '');
+  el.innerHTML = icon + '<span>' + esc(msg) + '</span>';
+  $('toasts').appendChild(el);
+  setTimeout(() => {
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 320);
+  }, 3400);
+}
+
+/* ---------------- API ---------------- */
+async function api(path, opts) {
+  opts = opts || {};
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  let res;
+  try {
+    res = await fetch(path, Object.assign({}, opts, { headers }));
+  } catch (e) {
+    throw { status: 0, error: t('err_network') };
+  }
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* non-JSON */ }
+  if (!res.ok) {
+    if (res.status === 401 && state.token && !path.startsWith('/api/auth')) {
+      doLogout(true);
+      throw { status: 401, error: t('session_expired') };
+    }
+    if (res.status === 429) throw { status: 429, error: t('rate_limited') };
+    throw { status: res.status, error: (data && data.error) || t('err_generic') };
+  }
+  return data;
+}
+
+/* button loading helper */
+function withBusy(btn, fn) {
+  if (btn.classList.contains('loading')) return Promise.resolve();
+  btn.classList.add('loading');
+  const sp = document.createElement('span');
+  sp.className = 'spinner';
+  btn.appendChild(sp);
+  return Promise.resolve()
+    .then(fn)
+    .catch((e) => { toast((e && e.error) || t('err_generic'), 'err'); })
+    .finally(() => { btn.classList.remove('loading'); sp.remove(); });
+}
+
+/* ---------------- modal ---------------- */
+let modalCleanup = null;
+function openModal(html) {
+  $('modalCard').innerHTML = html;
+  $('modalWrap').classList.add('show');
+}
+function closeModal() {
+  $('modalWrap').classList.remove('show');
+  $('modalCard').innerHTML = '';
+  if (modalCleanup) { modalCleanup(); modalCleanup = null; }
+}
+$('modalWrap').addEventListener('click', (e) => { if (e.target === $('modalWrap')) closeModal(); });
+
+function confirmDlg(title, body, okLabel, cancelLabel) {
+  return new Promise((resolve) => {
+    openModal(
+      '<div class="modal-title">' + esc(title) + '</div>' +
+      '<div class="modal-body">' + esc(body) + '</div>' +
+      '<div class="modal-actions">' +
+        '<button class="btn-ghost" id="dlgNo">' + esc(cancelLabel) + '</button>' +
+        '<button class="btn-ghost btn-danger" id="dlgYes" style="font-weight:800">' + esc(okLabel) + '</button>' +
+      '</div>'
+    );
+    modalCleanup = () => resolve(false);
+    $('dlgNo').addEventListener('click', () => closeModal());
+    $('dlgYes').addEventListener('click', () => {
+      modalCleanup = null;
+      closeModal();
+      resolve(true);
+    });
+  });
+}
+
+/* ---------------- i18n apply ---------------- */
+function applyLang() {
+  document.documentElement.lang = state.lang;
+  document.documentElement.dir = state.lang === 'ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.getAttribute('data-i18n')); });
+  document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.getAttribute('data-i18n-ph')); });
+  $('splashMark').textContent = state.lang === 'ar' ? 'رحال جو' : 'Rahal Go';
+  $('langEn').classList.toggle('on', state.lang === 'en');
+  $('langAr').classList.toggle('on', state.lang === 'ar');
+  $('balanceCur').textContent = t('currency');
+  $('distOut').textContent = $('distSlider').value + ' ' + t('km');
+}
+function setLang(lang, persistToServer) {
+  state.lang = lang;
+  localStorage.setItem('rahal_lang', lang);
+  applyLang();
+  // re-render dynamic parts of current view
+  if (state.view === 'home') { renderGreeting(); renderPlaceChips(); renderRideCards(); }
+  if (state.view === 'wallet') renderWallet();
+  if (state.view === 'trips') loadTrips();
+  if (state.view === 'profile') renderPlacesList();
+  if (persistToServer && state.token) {
+    api('/api/profile', { method: 'PUT', body: JSON.stringify({ language: lang === 'ar' ? 'Arabic' : 'English' }) }).catch(() => {});
+  }
+}
+
+/* ---------------- navigation ---------------- */
+const NAV_VIEWS = ['home', 'trips', 'wallet', 'profile'];
+function show(view) {
+  if (state.view === 'tracking' && view !== 'tracking') stopTracking();
+  document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
+  const el = $('view-' + view);
+  if (el) el.classList.add('active');
+  state.view = view;
+  const nav = $('nav');
+  if (NAV_VIEWS.indexOf(view) !== -1) {
+    nav.classList.add('show');
+    nav.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.getAttribute('data-nav') === view));
+  } else {
+    nav.classList.remove('show');
+  }
+  window.scrollTo(0, 0);
+  if (view === 'home') initHome();
+  if (view === 'wallet') initWallet();
+  if (view === 'trips') loadTrips();
+  if (view === 'profile') initProfile();
+}
+$('nav').querySelectorAll('button').forEach((b) => {
+  b.addEventListener('click', () => show(b.getAttribute('data-nav')));
+});
+
+/* =============================================================
+   AUTH
+============================================================= */
+function normalizePhone(raw) {
+  let p = String(raw || '').replace(/[\s\-()]/g, '');
+  if (p.startsWith('+974')) p = p.slice(4);
+  else if (p.startsWith('00974')) p = p.slice(5);
+  else if (p.startsWith('974') && p.length === 11) p = p.slice(3);
+  return p;
+}
+function validQatariPhone(p) { return /^[3567]\d{7}$/.test(p); }
+
+$('sendCodeBtn').addEventListener('click', () => {
+  const phone = normalizePhone($('phoneInput').value);
+  if (!validQatariPhone(phone)) { toast(t('invalid_phone'), 'err'); return; }
+  withBusy($('sendCodeBtn'), async () => {
+    const res = await api('/api/auth/request-otp', { method: 'POST', body: JSON.stringify({ phone }) });
+    state.authPhone = res.phone || phone;
+    state.devCode = res.devCode || null;
+    $('otpPhoneLabel').textContent = '+974 ' + state.authPhone;
+    show('otp');
+    startOtpAutofill();
+  });
+});
+$('phoneInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('sendCodeBtn').click(); });
+
+/* OTP boxes */
+let otpDigits = [];
+let otpTimers = [];
+function buildOtpBoxes() {
+  const wrap = $('otpBoxes');
+  wrap.innerHTML = '';
+  otpDigits = [];
+  for (let i = 0; i < 6; i++) {
+    const b = document.createElement('div');
+    b.className = 'otp-box';
+    wrap.appendChild(b);
+  }
+}
+function clearOtpTimers() { otpTimers.forEach(clearTimeout); otpTimers = []; }
+function startOtpAutofill() {
+  clearOtpTimers();
+  buildOtpBoxes();
+  $('devNote').classList.remove('show');
+  const code = state.devCode;
+  if (!code) return;
+  const boxes = $('otpBoxes').children;
+  String(code).split('').slice(0, 6).forEach((d, i) => {
+    otpTimers.push(setTimeout(() => {
+      boxes[i].textContent = d;
+      boxes[i].classList.add('filled');
+      otpDigits[i] = d;
+      if (i === 5) {
+        $('devNote').classList.add('show');
+        otpTimers.push(setTimeout(() => verifyOtp(), 650));
+      }
+    }, 380 + i * 190));
+  });
+}
+function verifyOtp() {
+  const code = otpDigits.join('');
+  if (code.length !== 6) { toast(t('invalid_code'), 'err'); return; }
+  withBusy($('verifyBtn'), async () => {
+    const res = await api('/api/auth/verify-otp', { method: 'POST', body: JSON.stringify({ phone: state.authPhone, code }) });
+    state.token = res.token;
+    state.user = res.user;
+    localStorage.setItem('rahal_token', res.token);
+    if (res.user && res.user.language === 'Arabic' && state.lang !== 'ar') setLang('ar', false);
+    show('home');
+  });
+}
+$('verifyBtn').addEventListener('click', verifyOtp);
+$('resendBtn').addEventListener('click', () => {
+  withBusy($('resendBtn'), async () => {
+    const res = await api('/api/auth/request-otp', { method: 'POST', body: JSON.stringify({ phone: state.authPhone }) });
+    state.devCode = res.devCode || null;
+    startOtpAutofill();
+  });
+});
+$('changeNumBtn').addEventListener('click', () => { clearOtpTimers(); show('login'); });
+
+/* keyboard entry fallback for OTP (also works when devCode is absent) */
+document.addEventListener('keydown', (e) => {
+  if (state.view !== 'otp') return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea') return;
+  const boxes = $('otpBoxes').children;
+  if (!boxes.length) return;
+  if (/^\d$/.test(e.key)) {
+    const i = otpDigits.filter((d) => d != null && d !== '').length;
+    if (i < 6) {
+      otpDigits[i] = e.key;
+      boxes[i].textContent = e.key;
+      boxes[i].classList.add('filled');
+    }
+  } else if (e.key === 'Backspace') {
+    const i = otpDigits.filter((d) => d != null && d !== '').length - 1;
+    if (i >= 0) {
+      otpDigits[i] = '';
+      boxes[i].textContent = '';
+      boxes[i].classList.remove('filled');
+    }
+  } else if (e.key === 'Enter') {
+    verifyOtp();
+  }
+});
+
+function doLogout(silent) {
+  state.token = null;
+  state.user = null;
+  localStorage.removeItem('rahal_token');
+  stopTracking();
+  show('login');
+  if (!silent) toast(t('logout'), 'ok');
+}
+
+/* =============================================================
+   HOME
+============================================================= */
+let estimateSeq = 0;
+let sliderDebounce = null;
+let homeLoaded = false;
+
+function renderGreeting() {
+  const h = new Date().getHours();
+  $('greetTime').textContent = h < 12 ? t('good_morning') : (h < 17 ? t('good_afternoon') : t('good_evening'));
+  $('greetName').textContent = (state.user && state.user.name) || '';
+}
+
+function initHome() {
+  renderGreeting();
+  if (!state.user) {
+    api('/api/profile').then((r) => { state.user = r.user; renderGreeting(); }).catch(() => {});
+  }
+  loadPlaces().then(renderPlaceChips).catch(() => {});
+  refreshWalletBalance();
+  if (!homeLoaded) {
+    homeLoaded = true;
+    loadRideTypes();
+  } else {
+    renderRideCards();
+  }
+}
+
+function refreshWalletBalance() {
+  api('/api/wallet').then((r) => {
+    state.walletBalance = r.balance;
+    $('payWalletBal').textContent = fmtQAR(r.balance) + ' ' + t('currency');
+  }).catch(() => {});
+}
+
+async function loadPlaces() {
+  const r = await api('/api/places');
+  state.places = r.places || [];
+  return state.places;
+}
+function renderPlaceChips() {
+  const wrap = $('placeChips');
+  wrap.innerHTML = '';
+  const pinSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D4AF6A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+  state.places.forEach((p) => {
+    const c = document.createElement('button');
+    c.className = 'chip';
+    c.innerHTML = pinSvg + '<span>' + esc(p.label) + '</span>';
+    c.addEventListener('click', () => {
+      $('toInput').value = p.address;
+      $('toInput').animate([{ boxShadow: '0 0 0 3px rgba(0,229,199,.5)' }, { boxShadow: '0 0 0 3px rgba(0,229,199,0)' }], { duration: 700 });
+    });
+    wrap.appendChild(c);
+  });
+  wrap.style.display = state.places.length ? 'flex' : 'none';
+}
+
+function loadRideTypes() {
+  const wrap = $('rideCarousel');
+  wrap.innerHTML = '<div class="center-load" style="width:100%"><div class="spinner"></div></div>';
+  api('/api/ride-types').then((r) => {
+    state.rideTypes = r.types || [];
+    if (!state.selectedType && state.rideTypes.length) state.selectedType = state.rideTypes[0].id;
+    renderRideCards();
+    fetchEstimates();
+  }).catch((e) => {
+    wrap.innerHTML = '';
+    toast(e.error || t('err_generic'), 'err');
+  });
+}
+
+const RIDE_ICONS = {
+  go: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16h-1v-4l2-5h9l3.5 5H21v4h-1"/><circle cx="7" cy="16.5" r="1.8"/><circle cx="16.5" cy="16.5" r="1.8"/></svg>',
+  comfort: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 16h-1v-4l2.5-5h10l3.5 5H21.5v4h-1"/><circle cx="7" cy="16.5" r="1.8"/><circle cx="17" cy="16.5" r="1.8"/><path d="M12 3.5l.9 1.8 2 .3-1.4 1.4.3 2-1.8-1-1.8 1 .3-2L9.1 5.6l2-.3z" fill="currentColor" stroke="none" opacity=".9"/></svg>',
+  family: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7" width="19" height="9" rx="2.5"/><path d="M2.5 12h19M8 7v5M14 7v5"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/></svg>',
+  business: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16h-.5v-4l3-5.5h10L20 12h1.5v4h-1"/><circle cx="7" cy="16.5" r="1.8"/><circle cx="17" cy="16.5" r="1.8"/><path d="M9 9h6"/></svg>'
+};
+
+function renderRideCards() {
+  const wrap = $('rideCarousel');
+  wrap.innerHTML = '';
+  const ar = state.lang === 'ar';
+  state.rideTypes.forEach((rt) => {
+    const est = state.estimates[rt.id];
+    const card = document.createElement('button');
+    card.className = 'glass ride-card' + (state.selectedType === rt.id ? ' selected' : '');
+    card.setAttribute('data-type', rt.id);
+    card.innerHTML =
+      '<div class="ricon">' + (RIDE_ICONS[rt.id] || RIDE_ICONS.go) + '</div>' +
+      '<div class="rname">' + esc(ar ? rt.nameAr : rt.name) + '</div>' +
+      '<div class="rdesc">' + esc(ar ? rt.descriptionAr : rt.description) + '</div>' +
+      '<div class="rprice' + (est ? '' : ' skeleton') + '">' + (est ? fmtQAR(est.price) + ' ' + t('currency') : '00.0') + '</div>' +
+      '<div class="rmeta">' + (est ? esc(est.etaMinutes + ' ' + t('min')) + ' · ' : '') + esc(rt.seats + ' ' + t('seats')) + '</div>';
+    card.addEventListener('click', () => {
+      state.selectedType = rt.id;
+      wrap.querySelectorAll('.ride-card').forEach((c) => c.classList.toggle('selected', c.getAttribute('data-type') === rt.id));
+    });
+    wrap.appendChild(card);
+  });
+}
+
+function fetchEstimates() {
+  const dist = $('distSlider').value;
+  const seq = ++estimateSeq;
+  state.estimates = {};
+  renderRideCards();
+  state.rideTypes.forEach((rt) => {
+    api('/api/rides/estimate?type=' + encodeURIComponent(rt.id) + '&distanceKm=' + dist)
+      .then((r) => {
+        if (seq !== estimateSeq) return;
+        state.estimates[rt.id] = r.estimate;
+        const card = $('rideCarousel').querySelector('[data-type="' + rt.id + '"]');
+        if (card) {
+          const priceEl = card.querySelector('.rprice');
+          const metaEl = card.querySelector('.rmeta');
+          priceEl.classList.remove('skeleton');
+          priceEl.textContent = fmtQAR(r.estimate.price) + ' ' + t('currency');
+          metaEl.textContent = r.estimate.etaMinutes + ' ' + t('min') + ' · ' + rt.seats + ' ' + t('seats');
+        }
+      })
+      .catch(() => { /* leave skeleton; booking guards against missing estimate */ });
+  });
+}
+
+$('distSlider').addEventListener('input', () => {
+  $('distOut').textContent = $('distSlider').value + ' ' + t('km');
+  clearTimeout(sliderDebounce);
+  sliderDebounce = setTimeout(fetchEstimates, 300);
+});
+
+$('payCash').addEventListener('click', () => {
+  state.payMethod = 'cash';
+  $('payCash').classList.add('on');
+  $('payWallet').classList.remove('on');
+});
+$('payWallet').addEventListener('click', () => {
+  state.payMethod = 'wallet';
+  $('payWallet').classList.add('on');
+  $('payCash').classList.remove('on');
+});
+
+$('schedToggle').addEventListener('click', () => {
+  state.schedOn = !state.schedOn;
+  $('schedToggle').classList.toggle('on', state.schedOn);
+  $('schedWrap').classList.toggle('open', state.schedOn);
+  if (state.schedOn && !$('schedInput').value) {
+    const d = new Date(Date.now() + 3600 * 1000);
+    d.setMinutes(0, 0, 0);
+    const pad = (n) => String(n).padStart(2, '0');
+    $('schedInput').value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+});
+
+$('bookBtn').addEventListener('click', () => {
+  const from = $('fromInput').value.trim();
+  const to = $('toInput').value.trim();
+  if (!from || !to) { toast(t('need_route'), 'err'); return; }
+  const est = state.estimates[state.selectedType];
+  if (!state.selectedType || !est) { toast(t('need_type'), 'err'); return; }
+  let scheduledAt = null;
+  if (state.schedOn) {
+    const v = $('schedInput').value;
+    if (!v || new Date(v).getTime() <= Date.now()) { toast(t('need_sched'), 'err'); return; }
+    scheduledAt = new Date(v).toISOString();
+  }
+  const body = { from, to, type: state.selectedType, price: est.price, paymentMethod: state.payMethod };
+  if (scheduledAt) body.scheduledAt = scheduledAt;
+  withBusy($('bookBtn'), async () => {
+    const r = await api('/api/rides', { method: 'POST', body: JSON.stringify(body) });
+    toast(t('ride_booked'), 'ok');
+    if (state.payMethod === 'wallet') refreshWalletBalance();
+    openTracking(r.ride.id);
+  });
+});
+
+/* =============================================================
+   TRACKING — canvas map of Doha
+============================================================= */
+const MAP = { latMin: 25.20, latMax: 25.38, lngMin: 51.45, lngMax: 51.65 };
+const track = {
+  rideId: null,
+  ride: null,
+  tracking: null,
+  pollTimer: null,
+  raf: null,
+  prevPos: null,   // {lat,lng}
+  nextPos: null,
+  lerpStart: 0,
+  trail: [],
+  particles: [],
+  celebrated: false,
+  lastStatus: null,
+  buildings: null,
+  dashOffset: 0
+};
+
+function proj(lat, lng, w, h) {
+  const pad = 0.06;
+  const x = ((lng - MAP.lngMin) / (MAP.lngMax - MAP.lngMin)) * w * (1 - pad * 2) + w * pad;
+  const y = (1 - (lat - MAP.latMin) / (MAP.latMax - MAP.latMin)) * h * (1 - pad * 2) + h * pad;
+  return { x, y };
+}
+
+function openTracking(rideId) {
+  stopTracking();
+  track.rideId = rideId;
+  track.ride = null;
+  track.tracking = null;
+  track.prevPos = null;
+  track.nextPos = null;
+  track.trail = [];
+  track.particles = [];
+  track.celebrated = false;
+  track.lastStatus = null;
+  state.trackRideId = rideId;
+  $('phaseLabel').textContent = '…';
+  $('phaseSub').textContent = '';
+  $('etaLabel').textContent = '';
+  $('progressFill').style.width = '0%';
+  $('driverRow').style.display = 'none';
+  $('cancelRideBtn').style.display = 'none';
+  $('trackDoneBtn').style.display = 'none';
+  show('tracking');
+  sizeCanvas();
+  pollTrack();
+  track.pollTimer = setInterval(pollTrack, 3000);
+  track.raf = requestAnimationFrame(drawMap);
+}
+
+function stopTracking() {
+  if (track.pollTimer) { clearInterval(track.pollTimer); track.pollTimer = null; }
+  if (track.raf) { cancelAnimationFrame(track.raf); track.raf = null; }
+  track.rideId = null;
+}
+
+async function pollTrack() {
+  if (!track.rideId) return;
+  const id = track.rideId;
+  try {
+    const r = await api('/api/rides/' + id + '/track');
+    if (track.rideId !== id) return; // left view while awaiting
+    track.ride = r.ride;
+    track.tracking = r.tracking;
+    updateTrackUI();
+    if (r.tracking && r.tracking.driverLocation) {
+      const cur = currentDriverPos() || r.tracking.driverLocation;
+      track.prevPos = cur;
+      track.nextPos = r.tracking.driverLocation;
+      track.lerpStart = performance.now();
+    }
+    const st = r.ride.status;
+    if (st === 'completed' && track.lastStatus !== 'completed') {
+      celebrate();
+    }
+    if (st === 'completed' || st === 'cancelled') {
+      if (track.pollTimer) { clearInterval(track.pollTimer); track.pollTimer = null; }
+    }
+    track.lastStatus = st;
+  } catch (e) {
+    if (e && e.status === 404) {
+      stopTracking();
+      show('home');
+    }
+    toast((e && e.error) || t('err_generic'), 'err');
+  }
+}
+
+function currentDriverPos() {
+  if (!track.nextPos) return null;
+  if (!track.prevPos) return track.nextPos;
+  const k = Math.min(1, (performance.now() - track.lerpStart) / 2800);
+  const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; // easeInOutQuad
+  return {
+    lat: track.prevPos.lat + (track.nextPos.lat - track.prevPos.lat) * e,
+    lng: track.prevPos.lng + (track.nextPos.lng - track.prevPos.lng) * e
+  };
+}
+
+function updateTrackUI() {
+  const ride = track.ride;
+  const tr = track.tracking;
+  if (!ride) return;
+  $('trackFrom').textContent = ride.from;
+  $('trackTo').textContent = ride.to;
+  const st = ride.status;
+  if (state.lang === 'ar') {
+    $('phaseLabel').textContent = ride.statusAr || statusLabel(st);
+    $('phaseSub').textContent = '';
+  } else {
+    $('phaseLabel').textContent = statusLabel(st);
+    $('phaseSub').textContent = ride.statusAr || '';
+  }
+
+  // eta
+  if (tr && st !== 'completed' && st !== 'cancelled') {
+    const m = tr.etaMinutes;
+    $('etaLabel').textContent = (m != null && m > 0) ? (t('eta_in') + ' ' + m + ' ' + t('min')) : t('arrived_soon');
+  } else {
+    $('etaLabel').textContent = st === 'completed' ? fmtQAR(ride.price) + ' ' + t('currency') : '';
+  }
+
+  // progress
+  let prog = 0;
+  if (tr && tr.progress != null) prog = tr.progress <= 1 ? tr.progress * 100 : tr.progress;
+  if (st === 'completed') prog = 100;
+  $('progressFill').style.width = Math.max(0, Math.min(100, prog)) + '%';
+
+  // driver
+  const di = ride.driverInfo;
+  if (di && di.name) {
+    $('driverRow').style.display = 'flex';
+    $('driverAvatar').textContent = di.name.trim().charAt(0);
+    $('driverName').textContent = di.name;
+    $('driverCar').textContent = di.car || '';
+    $('driverPlate').textContent = di.plate || '';
+    $('driverRating').textContent = '★ ' + (di.rating != null ? di.rating : '5.0');
+  } else {
+    $('driverRow').style.display = 'none';
+  }
+
+  const cancellable = ['scheduled', 'matched', 'arriving'].indexOf(st) !== -1;
+  $('cancelRideBtn').style.display = cancellable ? 'flex' : 'none';
+  const done = st === 'completed' || st === 'cancelled';
+  $('trackDoneBtn').style.display = done ? 'flex' : 'none';
+}
+
+$('cancelRideBtn').addEventListener('click', async () => {
+  const yes = await confirmDlg(t('cancel_q'), t('cancel_q_body'), t('yes_cancel'), t('keep_ride'));
+  if (!yes) return;
+  const id = track.rideId;
+  if (!id) return;
+  withBusy($('cancelRideBtn'), async () => {
+    await api('/api/rides/' + id + '/cancel', { method: 'POST' });
+    toast(t('ride_cancelled'), 'ok');
+    stopTracking();
+    show('home');
+  });
+});
+$('trackBack').addEventListener('click', () => { show('home'); });
+$('trackDoneBtn').addEventListener('click', () => { show('home'); });
+
+/* canvas */
+const canvas = $('trackCanvas');
+const ctx = canvas.getContext('2d');
+function sizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  canvas._w = rect.width;
+  canvas._h = rect.height;
+}
+window.addEventListener('resize', () => { if (state.view === 'tracking') sizeCanvas(); });
+
+function seededBuildings() {
+  if (track.buildings) return track.buildings;
+  // deterministic pseudo-random cluster around West Bay (lat 25.323, lng 51.531)
+  const rnd = (function () { let s = 42; return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; })();
+  const arr = [];
+  for (let i = 0; i < 16; i++) {
+    arr.push({
+      dLat: (rnd() - 0.5) * 0.018,
+      dLng: (rnd() - 0.5) * 0.02,
+      w: 4 + rnd() * 6,
+      h: 8 + rnd() * 26,
+      glow: 0.25 + rnd() * 0.5,
+      phase: rnd() * Math.PI * 2
+    });
+  }
+  track.buildings = arr;
+  return arr;
+}
+
+function drawPin(x, y, color, glow) {
+  ctx.save();
+  ctx.shadowColor = glow;
+  ctx.shadowBlur = 16;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  // stem
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x, y - 14);
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // head
+  ctx.beginPath();
+  ctx.arc(x, y - 19, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x, y - 19, 2.4, 0, Math.PI * 2);
+  ctx.fillStyle = '#070B14';
+  ctx.fill();
+  // base dot
+  ctx.beginPath();
+  ctx.arc(x, y, 2.6, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawMap(now) {
+  if (state.view !== 'tracking') { track.raf = null; return; }
+  track.raf = requestAnimationFrame(drawMap);
+  const w = canvas._w || 300, h = canvas._h || 600;
+  ctx.clearRect(0, 0, w, h);
+
+  // base
+  const bg = ctx.createLinearGradient(0, 0, 0, h);
+  bg.addColorStop(0, '#080D1A');
+  bg.addColorStop(1, '#060910');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+
+  // grid
+  ctx.strokeStyle = 'rgba(0,229,199,0.045)';
+  ctx.lineWidth = 1;
+  const step = 38;
+  ctx.beginPath();
+  for (let x = (w % step) / 2; x < w; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+  for (let y = (h % step) / 2; y < h; y += step) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+  ctx.stroke();
+
+  // coastline: stylized Doha corniche arc around the bay
+  const c1 = proj(25.375, 51.523, w, h);
+  const c2 = proj(25.330, 51.560, w, h);   // control — bay bulge
+  const c3 = proj(25.292, 51.543, w, h);
+  const c4 = proj(25.240, 51.618, w, h);
+  const coast = () => {
+    ctx.beginPath();
+    ctx.moveTo(c1.x, c1.y - 40);
+    ctx.quadraticCurveTo(c1.x + 8, c1.y, (c1.x + c2.x) / 2, (c1.y + c2.y) / 2);
+    ctx.quadraticCurveTo(c2.x, c2.y, c3.x, c3.y);
+    ctx.quadraticCurveTo(c3.x + 20, c3.y + 30, c4.x, c4.y);
+  };
+  // water fill (east of coastline)
+  ctx.save();
+  coast();
+  ctx.lineTo(w, c4.y + 60);
+  ctx.lineTo(w, 0);
+  ctx.closePath();
+  const water = ctx.createLinearGradient(0, 0, w, 0);
+  water.addColorStop(0, 'rgba(0,229,199,0.02)');
+  water.addColorStop(1, 'rgba(0,120,140,0.07)');
+  ctx.fillStyle = water;
+  ctx.fill();
+  ctx.restore();
+  // glow stroke
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,229,199,0.8)';
+  ctx.shadowBlur = 12;
+  ctx.strokeStyle = 'rgba(0,229,199,0.4)';
+  ctx.lineWidth = 2;
+  coast();
+  ctx.stroke();
+  ctx.restore();
+
+  // West Bay buildings
+  const bl = seededBuildings();
+  const tSec = now / 1000;
+  bl.forEach((b) => {
+    const p = proj(25.323 + b.dLat, 51.531 + b.dLng, w, h);
+    const flick = 0.7 + 0.3 * Math.sin(tSec * 1.4 + b.phase);
+    ctx.fillStyle = 'rgba(212,175,106,' + (0.10 + 0.14 * b.glow * flick).toFixed(3) + ')';
+    ctx.fillRect(p.x - b.w / 2, p.y - b.h, b.w, b.h);
+    ctx.fillStyle = 'rgba(0,229,199,' + (0.30 * b.glow * flick).toFixed(3) + ')';
+    ctx.fillRect(p.x - b.w / 2, p.y - b.h, b.w, 1.5);
+  });
+
+  const tr = track.tracking;
+  if (tr && tr.pickup && tr.dropoff) {
+    const A = proj(tr.pickup.lat, tr.pickup.lng, w, h);
+    const B = proj(tr.dropoff.lat, tr.dropoff.lng, w, h);
+    // route arc control point (perpendicular offset)
+    const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+    const dx = B.x - A.x, dy = B.y - A.y;
+    const len = Math.max(1, Math.hypot(dx, dy));
+    const off = Math.min(70, len * 0.28);
+    const cx = mx - (dy / len) * off, cy = my + (dx / len) * off;
+
+    // route glow underlay
+    ctx.save();
+    ctx.strokeStyle = 'rgba(212,175,106,0.16)';
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(A.x, A.y);
+    ctx.quadraticCurveTo(cx, cy, B.x, B.y);
+    ctx.stroke();
+    // animated dashed overlay
+    track.dashOffset -= 0.55;
+    ctx.setLineDash([10, 9]);
+    ctx.lineDashOffset = track.dashOffset;
+    ctx.shadowColor = 'rgba(212,175,106,0.9)';
+    ctx.shadowBlur = 9;
+    ctx.strokeStyle = 'rgba(240,205,140,0.85)';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(A.x, A.y);
+    ctx.quadraticCurveTo(cx, cy, B.x, B.y);
+    ctx.stroke();
+    ctx.restore();
+
+    // pins
+    drawPin(A.x, A.y, '#D4AF6A', 'rgba(212,175,106,0.9)');
+    drawPin(B.x, B.y, '#00E5C7', 'rgba(0,229,199,0.9)');
+
+    // driver
+    const dp = currentDriverPos();
+    if (dp) {
+      const D = proj(dp.lat, dp.lng, w, h);
+      // trail
+      track.trail.push({ x: D.x, y: D.y });
+      if (track.trail.length > 26) track.trail.shift();
+      for (let i = 0; i < track.trail.length; i++) {
+        const p = track.trail[i];
+        const a = (i / track.trail.length) * 0.35;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2 + (i / track.trail.length) * 2.4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(230,70,115,' + a.toFixed(3) + ')';
+        ctx.fill();
+      }
+      // pulse ring
+      const pulse = 8 + 5 * (0.5 + 0.5 * Math.sin(tSec * 4));
+      ctx.beginPath();
+      ctx.arc(D.x, D.y, pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(230,70,115,0.35)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      // dot
+      ctx.save();
+      ctx.shadowColor = 'rgba(255,80,125,0.95)';
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(D.x, D.y, 6.2, 0, Math.PI * 2);
+      ctx.fillStyle = '#8A1538';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(D.x, D.y, 2.6, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFD0DC';
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // celebration particles
+  if (track.particles.length) {
+    track.particles = track.particles.filter((p) => p.life > 0);
+    track.particles.forEach((p) => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life -= 0.014;
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+  }
+}
+
+function celebrate() {
+  const w = canvas._w || 300, h = canvas._h || 600;
+  const colors = ['#D4AF6A', '#00E5C7', '#FF5C7A', '#FFF3D6', '#8A1538'];
+  let ox = w / 2, oy = h / 2 - 60;
+  if (track.tracking && track.tracking.dropoff) {
+    const B = proj(track.tracking.dropoff.lat, track.tracking.dropoff.lng, w, h);
+    ox = B.x; oy = B.y - 20;
+  }
+  for (let i = 0; i < 90; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const sp = 1.5 + Math.random() * 4.5;
+    track.particles.push({
+      x: ox, y: oy,
+      vx: Math.cos(ang) * sp,
+      vy: Math.sin(ang) * sp - 1.5,
+      r: 1.5 + Math.random() * 2.6,
+      life: 0.9 + Math.random() * 0.5,
+      color: colors[i % colors.length]
+    });
+  }
+  toast(t('trip_completed'), 'ok');
+  setTimeout(() => {
+    if (state.view === 'tracking' && track.ride && !track.ride.rating) {
+      openRateModal(track.ride);
+    }
+  }, 1700);
+}
+
+/* =============================================================
+   RATE MODAL
+============================================================= */
+function openRateModal(ride) {
+  let stars = 0;
+  const driverName = (ride.driverInfo && ride.driverInfo.name) || ride.driver || '';
+  const starSvg = '<svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.3l-5.8 3.1 1.1-6.5L2.6 9.3l6.5-.9z"/></svg>';
+  let starsHtml = '';
+  for (let i = 1; i <= 5; i++) starsHtml += '<button data-star="' + i + '" aria-label="' + i + ' stars">' + starSvg + '</button>';
+  openModal(
+    '<div class="modal-title" style="text-align:center">' + esc(t('rate_title')) + '</div>' +
+    '<div class="modal-body" style="text-align:center;margin-bottom:4px">' + esc(t('rate_sub')) + ' <b style="color:var(--gold)">' + esc(driverName) + '</b>' + (state.lang === 'ar' ? '؟' : '?') + '</div>' +
+    '<div class="stars-pick" id="starsPick">' + starsHtml + '</div>' +
+    '<textarea class="input" id="rateComment" placeholder="' + esc(t('comment_ph')) + '" style="margin-bottom:16px"></textarea>' +
+    '<button class="btn-primary" id="rateSubmit"><span class="btn-label">' + esc(t('submit_rating')) + '</span></button>' +
+    '<button class="btn-ghost" id="rateSkip" style="margin-top:10px;border:none;color:var(--muted)">' + esc(t('skip')) + '</button>'
+  );
+  const pick = $('starsPick');
+  pick.querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      stars = parseInt(b.getAttribute('data-star'), 10);
+      pick.querySelectorAll('button').forEach((x) => {
+        x.classList.toggle('lit', parseInt(x.getAttribute('data-star'), 10) <= stars);
+      });
+    });
+  });
+  $('rateSkip').addEventListener('click', closeModal);
+  $('rateSubmit').addEventListener('click', () => {
+    if (!stars) { toast(t('pick_stars'), 'err'); return; }
+    const comment = $('rateComment').value.trim();
+    const body = { rating: stars };
+    if (comment) body.comment = comment;
+    withBusy($('rateSubmit'), async () => {
+      await api('/api/rides/' + ride.id + '/rate', { method: 'POST', body: JSON.stringify(body) });
+      closeModal();
+      toast(t('rating_thanks'), 'ok');
+      if (state.view === 'trips') loadTrips();
+    });
+  });
+}
+
+/* =============================================================
+   WALLET
+============================================================= */
+let displayedBalance = 0;
+let balanceAnim = null;
+
+function initWallet() {
+  renderWallet();
+  loadWallet();
+  if (!$('topupChips').children.length) {
+    [25, 50, 100, 200].forEach((amt) => {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.setAttribute('data-amt', amt);
+      b.innerHTML = '<span class="btn-label">+' + amt + '</span>';
+      b.addEventListener('click', () => {
+        withBusy(b, async () => {
+          const r = await api('/api/wallet/topup', { method: 'POST', body: JSON.stringify({ amount: amt }) });
+          toast(t('topup_done') + ' — +' + amt + ' ' + t('currency'), 'ok');
+          applyWalletData(r);
+        });
+      });
+      $('topupChips').appendChild(b);
+    });
+  }
+}
+function renderWallet() {
+  $('balanceCur').textContent = t('currency');
+}
+function loadWallet() {
+  $('txList').innerHTML = '<div class="center-load"><div class="spinner"></div></div>';
+  api('/api/wallet')
+    .then(applyWalletData)
+    .catch((e) => {
+      $('txList').innerHTML = '';
+      toast(e.error || t('err_generic'), 'err');
+    });
+}
+function animateBalance(to) {
+  if (balanceAnim) cancelAnimationFrame(balanceAnim);
+  const from = displayedBalance;
+  const start = performance.now();
+  const dur = 750;
+  const step = (now) => {
+    const k = Math.min(1, (now - start) / dur);
+    const e = 1 - Math.pow(1 - k, 3);
+    const v = from + (to - from) * e;
+    $('balanceNum').textContent = v.toFixed(2);
+    if (k < 1) balanceAnim = requestAnimationFrame(step);
+    else { displayedBalance = to; balanceAnim = null; }
+  };
+  balanceAnim = requestAnimationFrame(step);
+}
+
+const TX_ICONS = {
+  gift: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#D4AF6A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8" width="17" height="4"/><rect x="5.5" y="12" width="13" height="8.5"/><path d="M12 8v12.5M12 8s-4.5.2-4.5-2.6C7.5 3.6 11 3.7 12 8zM12 8s4.5.2 4.5-2.6C16.5 3.6 13 3.7 12 8z"/></svg>',
+  topup: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#00E5C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>',
+  trip: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#E8547B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16h-1v-4l2-5h9l3.5 5H21v4h-1"/><circle cx="7" cy="16.5" r="1.8"/><circle cx="16.5" cy="16.5" r="1.8"/></svg>',
+  refund: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#00E5C7" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>'
+};
+
+function applyWalletData(data) {
+  state.walletBalance = data.balance;
+  animateBalance(Number(data.balance) || 0);
+  $('payWalletBal').textContent = fmtQAR(data.balance) + ' ' + t('currency');
+  const list = $('txList');
+  list.innerHTML = '';
+  const txs = data.transactions || [];
+  if (!txs.length) {
+    list.innerHTML = '<div class="empty-state">' + esc(t('no_transactions')) + '</div>';
+    return;
+  }
+  txs.forEach((tx) => {
+    const amt = Number(tx.amount) || 0;
+    const d = tx.date ? new Date(tx.date) : null;
+    const dateStr = d ? d.toLocaleDateString(state.lang === 'ar' ? 'ar-QA' : 'en-QA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    const row = document.createElement('div');
+    row.className = 'glass tx';
+    row.innerHTML =
+      '<div class="tx-ic">' + (TX_ICONS[tx.icon] || TX_ICONS.topup) + '</div>' +
+      '<div class="tx-body"><div class="tx-title">' + esc(tx.title) + '</div><div class="tx-date">' + esc(dateStr) + '</div></div>' +
+      '<div class="tx-amt ' + (amt >= 0 ? 'pos' : 'neg') + '">' + (amt >= 0 ? '+' : '−') + fmtQAR(Math.abs(amt)) + ' ' + t('currency') + '</div>';
+    list.appendChild(row);
+  });
+}
+
+$('promoBtn').addEventListener('click', () => {
+  const code = $('promoInput').value.trim().toUpperCase();
+  if (!code) { toast(t('enter_promo'), 'err'); return; }
+  withBusy($('promoBtn'), async () => {
+    const r = await api('/api/promo/redeem', { method: 'POST', body: JSON.stringify({ code }) });
+    $('promoInput').value = '';
+    toast(t('promo_ok') + ' — +' + fmtQAR(r.credit) + ' ' + t('currency'), 'ok');
+    loadWallet();
+  });
+});
+$('promoInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('promoBtn').click(); });
+
+/* =============================================================
+   TRIPS
+============================================================= */
+const ACTIVE_STATUSES = ['scheduled', 'matched', 'arriving', 'in_progress'];
+
+function loadTrips() {
+  const list = $('tripsList');
+  list.innerHTML = '<div class="center-load"><div class="spinner"></div></div>';
+  api('/api/rides')
+    .then((r) => renderTrips(r.rides || []))
+    .catch((e) => {
+      list.innerHTML = '';
+      toast(e.error || t('err_generic'), 'err');
+    });
+}
+
+function renderTrips(rides) {
+  const list = $('tripsList');
+  list.innerHTML = '';
+  if (!rides.length) {
+    list.innerHTML = '<div class="empty-state">' + esc(t('no_trips')).replace(/\n/g, '<br>') + '</div>';
+    return;
+  }
+  const ar = state.lang === 'ar';
+  rides.forEach((ride) => {
+    const active = ACTIVE_STATUSES.indexOf(ride.status) !== -1;
+    const pillCls = active ? 'st-active' : (ride.status === 'completed' ? 'st-completed' : 'st-cancelled');
+    const label = ar ? (ride.statusAr || statusLabel(ride.status)) : statusLabel(ride.status);
+    const d = ride.scheduledAt ? new Date(ride.scheduledAt) : (ride.createdAt ? new Date(ride.createdAt) : null);
+    const dateStr = d ? d.toLocaleDateString(ar ? 'ar-QA' : 'en-QA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    const typeObj = state.rideTypes.find((x) => x.id === ride.type);
+    const typeName = typeObj ? (ar ? typeObj.nameAr : typeObj.name) : ride.type;
+    const card = document.createElement('div');
+    card.className = 'glass trip-card';
+    let metaBits = '<span>' + esc(dateStr) + '</span><span>·</span><span>' + esc(typeName) + '</span>';
+    if (ride.driverInfo && ride.driverInfo.name && ride.status !== 'scheduled') {
+      metaBits += '<span>·</span><span>' + esc(ride.driverInfo.name) + '</span>';
+    }
+    if (ride.rating) {
+      metaBits += '<span>·</span><span class="stars-inline">' + '★'.repeat(ride.rating) + '</span>';
+    }
+    card.innerHTML =
+      '<div class="trip-head"><span class="pill ' + pillCls + '">' + esc(label) + '</span>' +
+      '<span class="trip-price">' + fmtQAR(ride.price) + ' ' + t('currency') + '</span></div>' +
+      '<div class="trip-route">' +
+        '<div class="rr"><div class="d1"></div><span>' + esc(ride.from) + '</span></div>' +
+        '<div class="rr"><div class="d2"></div><span>' + esc(ride.to) + '</span></div>' +
+      '</div>' +
+      '<div class="trip-meta">' + metaBits + '</div>';
+    const actions = document.createElement('div');
+    actions.className = 'trip-actions';
+    let hasAction = false;
+    if (active) {
+      const b = document.createElement('button');
+      b.className = 'btn-ghost live';
+      b.textContent = t('track_live');
+      b.addEventListener('click', () => openTracking(ride.id));
+      actions.appendChild(b);
+      hasAction = true;
+    }
+    if (ride.status === 'completed' && !ride.rating) {
+      const b = document.createElement('button');
+      b.className = 'btn-ghost rateb';
+      b.textContent = t('rate');
+      b.addEventListener('click', () => openRateModal(ride));
+      actions.appendChild(b);
+      hasAction = true;
+    }
+    if (hasAction) card.appendChild(actions);
+    list.appendChild(card);
+  });
+}
+
+/* =============================================================
+   PROFILE
+============================================================= */
+function initProfile() {
+  if (state.user) fillProfileForm();
+  api('/api/profile').then((r) => {
+    state.user = r.user;
+    fillProfileForm();
+  }).catch(() => {});
+  loadPlaces().then(renderPlacesList).catch(() => {});
+}
+function fillProfileForm() {
+  $('profName').value = state.user.name || '';
+  $('profEmail').value = state.user.email || '';
+  $('profCity').value = state.user.city || '';
+}
+$('saveProfileBtn').addEventListener('click', () => {
+  withBusy($('saveProfileBtn'), async () => {
+    const body = {
+      name: $('profName').value.trim(),
+      email: $('profEmail').value.trim(),
+      city: $('profCity').value.trim()
+    };
+    const r = await api('/api/profile', { method: 'PUT', body: JSON.stringify(body) });
+    state.user = r.user || state.user;
+    toast(t('profile_saved'), 'ok');
+    renderGreeting();
+  });
+});
+$('langEn').addEventListener('click', () => { if (state.lang !== 'en') setLang('en', true); });
+$('langAr').addEventListener('click', () => { if (state.lang !== 'ar') setLang('ar', true); });
+
+function renderPlacesList() {
+  const list = $('placesList');
+  list.innerHTML = '';
+  if (!state.places.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:18px;font-size:13.5px">' + esc(t('no_places')) + '</div>';
+    return;
+  }
+  const pinSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+  const trashSvg = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5"/></svg>';
+  state.places.forEach((p) => {
+    const row = document.createElement('div');
+    row.className = 'glass place-row';
+    row.innerHTML =
+      '<div class="pi">' + pinSvg + '</div>' +
+      '<div class="pb"><div class="pl">' + esc(p.label) + '</div><div class="pa">' + esc(p.address) + '</div></div>';
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.setAttribute('aria-label', 'delete');
+    del.innerHTML = trashSvg;
+    del.addEventListener('click', () => {
+      withBusy(del, async () => {
+        await api('/api/places/' + encodeURIComponent(p.id), { method: 'DELETE' });
+        state.places = state.places.filter((x) => x.id !== p.id);
+        renderPlacesList();
+        renderPlaceChips();
+        toast(t('place_removed'), 'ok');
+      });
+    });
+    row.appendChild(del);
+    list.appendChild(row);
+  });
+}
+$('addPlaceBtn').addEventListener('click', () => {
+  const label = $('newPlaceLabel').value.trim();
+  const address = $('newPlaceAddr').value.trim();
+  if (!label || !address) { toast(t('need_place'), 'err'); return; }
+  withBusy($('addPlaceBtn'), async () => {
+    await api('/api/places', { method: 'POST', body: JSON.stringify({ label, address }) });
+    $('newPlaceLabel').value = '';
+    $('newPlaceAddr').value = '';
+    await loadPlaces();
+    renderPlacesList();
+    renderPlaceChips();
+    toast(t('place_added'), 'ok');
+  });
+});
+$('logoutBtn').addEventListener('click', async () => {
+  const yes = await confirmDlg(t('logout_q'), t('logout_q_body'), t('yes_logout'), t('stay'));
+  if (yes) doLogout(true);
+});
+
+/* =============================================================
+   BOOT
+============================================================= */
+applyLang();
+show('splash');
+setTimeout(async () => {
+  if (!state.token) { show('login'); return; }
+  try {
+    const r = await api('/api/profile');
+    state.user = r.user;
+    if (r.user && r.user.language === 'Arabic' && state.lang !== 'ar') setLang('ar', false);
+    show('home');
+  } catch (e) {
+    if (state.view !== 'login') show('login');
+  }
+}, 1200);
+</script>
+</body>
+</html>

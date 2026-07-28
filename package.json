@@ -1,7 +1,7 @@
 {
-  "name": "rideegypt-backend",
+  "name": "rahalgo-backend",
   "version": "1.0.0",
-  "description": "RideEgypt API backend — auth, rides, wallet",
+  "description": "Rahal Go API backend — auth, rides, wallet",
   "main": "server.js",
   "type": "commonjs",
   "engines": {
@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "seed": "node seed.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

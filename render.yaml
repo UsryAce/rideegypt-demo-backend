@@ -1,11 +1,10 @@
-# Render.com Blueprint — one-click deploy for the Ride Egypt backend.
-# In Render: New + → Blueprint → connect the repo that contains this /backend folder.
+# Render.com Blueprint — one-click deploy for the Rahal Go backend.
+# In Render: New + → Blueprint → connect this repo.
 services:
   - type: web
-    name: rideegypt-api
+    name: rahalgo-api
     runtime: node
     plan: free
-    rootDir: backend
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health

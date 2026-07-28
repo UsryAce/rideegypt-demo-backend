@@ -9,6 +9,8 @@ const defaultData = {
   rides: [], // {id, userId, from, to, type, price, status, driver, rating, createdAt}
   transactions: [], // {id, userId, icon, title, amount, date}
   otps: {}, // phone -> {code, expiresAt}
+  places: [], // {id, userId, label, address, createdAt}
+  promoRedemptions: [], // {userId, code, date}
 };
 
 function load() {
@@ -23,6 +25,10 @@ function load() {
 }
 
 let data = load();
+// Backfill collections added after the DB file was first created
+for (const key of Object.keys(defaultData)) {
+  if (!(key in data)) data[key] = JSON.parse(JSON.stringify(defaultData[key]));
+}
 
 function save() {
   fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
@@ -51,7 +57,7 @@ module.exports = {
       role: user.role || 'rider',
       name: user.name || 'New User',
       email: user.email || '',
-      city: user.city || 'Cairo',
+      city: user.city || 'Doha',
       language: user.language || 'English',
       rating: 5.0,
       walletBalance: 0,
@@ -62,7 +68,6 @@ module.exports = {
     return u;
   },
   updateUser(id, patch) {
-    const u = data.findUserById ? data.findUserById(id) : data.users.find(x => x.id === id);
     const user = data.users.find(x => x.id === id);
     if (!user) return null;
     Object.assign(user, patch);
@@ -95,6 +100,43 @@ module.exports = {
   },
   ridesForUser(userId) {
     return data.rides.filter(r => r.userId === userId);
+  },
+  findRide(id, userId) {
+    return data.rides.find(r => r.id === id && r.userId === userId);
+  },
+  updateRide(id, userId, patch) {
+    const ride = data.rides.find(r => r.id === id && r.userId === userId);
+    if (!ride) return null;
+    Object.assign(ride, patch);
+    save();
+    return ride;
+  },
+
+  // Saved places
+  placesForUser(userId) {
+    return data.places.filter(p => p.userId === userId);
+  },
+  addPlace(place) {
+    const p = {id: genId(), createdAt: new Date().toISOString(), ...place};
+    data.places.push(p);
+    save();
+    return p;
+  },
+  removePlace(id, userId) {
+    const i = data.places.findIndex(p => p.id === id && p.userId === userId);
+    if (i === -1) return false;
+    data.places.splice(i, 1);
+    save();
+    return true;
+  },
+
+  // Promo redemptions
+  hasRedeemedPromo(userId, code) {
+    return data.promoRedemptions.some(r => r.userId === userId && r.code === code);
+  },
+  redeemPromo(userId, code) {
+    data.promoRedemptions.push({userId, code, date: new Date().toISOString()});
+    save();
   },
 
   // Transactions
