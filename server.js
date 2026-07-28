@@ -16,17 +16,29 @@ const DEV_MODE = process.env.DEV_MODE !== 'false';
 // ---- Pluggable SMS sender ----
 // With no SMS provider configured, this is a no-op and the code is returned
 // in the API response (auto-filled in the app). To enable real SMS, set the
-// TWILIO_* env vars and `npm i twilio`, then flip DEV_MODE=false.
+// TWILIO_* env vars and flip DEV_MODE=false — no extra npm packages needed
+// (calls Twilio's REST API directly via Node's built-in fetch).
 async function sendSms(phone, code) {
   const {TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM} = process.env;
   if (!TWILIO_SID || !TWILIO_TOKEN || !TWILIO_FROM) return false;
   try {
-    const twilio = require('twilio')(TWILIO_SID, TWILIO_TOKEN);
-    await twilio.messages.create({
-      to: phone.startsWith('+') ? phone : `+974${phone}`,
-      from: TWILIO_FROM,
-      body: `Your Rahal Go verification code is ${code}`,
+    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString('base64'),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        To: phone.startsWith('+') ? phone : `+974${phone}`,
+        From: TWILIO_FROM,
+        Body: `Your Rahal Go verification code is ${code}`,
+      }).toString(),
     });
+    if (!resp.ok) {
+      const err = await resp.text();
+      console.error('[SMS] Twilio error:', resp.status, err.slice(0, 200));
+      return false;
+    }
     return true;
   } catch (e) {
     console.error('[SMS] send failed:', e.message);
@@ -37,6 +49,27 @@ async function sendSms(phone, code) {
 // Normalize Qatari numbers to their 8-digit local form ("+974 5551 2345" -> "55512345")
 function normalizePhone(phone) {
   return String(phone || '').replace(/^\+?974/, '').replace(/\D/g, '');
+}
+
+// ---- OTP rate limiting (in-memory) ----
+// Max 5 OTP requests per phone per 15 minutes, and max 5 wrong verification
+// attempts per phone before the code must be re-requested.
+const OTP_WINDOW_MS = 15 * 60 * 1000;
+const OTP_MAX_REQUESTS = 5;
+const OTP_MAX_ATTEMPTS = 5;
+const otpRequests = new Map(); // phone -> [timestamps]
+const otpAttempts = new Map(); // phone -> wrong-attempt count
+
+function otpRateLimited(phone) {
+  const now = Date.now();
+  const times = (otpRequests.get(phone) || []).filter(t => now - t < OTP_WINDOW_MS);
+  if (times.length >= OTP_MAX_REQUESTS) {
+    otpRequests.set(phone, times);
+    return true;
+  }
+  times.push(now);
+  otpRequests.set(phone, times);
+  return false;
 }
 
 // ---- Auth middleware ----
@@ -68,6 +101,7 @@ const RIDE_TYPES = [
 ];
 
 const STATUS_AR = {
+  scheduled: 'رحلة مجدولة',
   requested: 'تم الطلب',
   matched: 'تم إيجاد سائق',
   arriving: 'السائق في الطريق إليك',
@@ -101,6 +135,10 @@ app.post('/api/auth/request-otp', async (req, res) => {
   if (phone.length !== 8 || !'3567'.includes(phone[0])) {
     return res.status(400).json({error: 'Valid Qatari phone number required (8 digits)'});
   }
+  if (otpRateLimited(phone)) {
+    return res.status(429).json({error: 'Too many OTP requests. Try again in a few minutes.'});
+  }
+  otpAttempts.delete(phone);
   const code = String(Math.floor(100000 + Math.random() * 900000));
   db.setOtp(phone, code);
   console.log(`[OTP] ${phone} -> ${code}`);
@@ -117,9 +155,15 @@ app.post('/api/auth/request-otp', async (req, res) => {
 app.post('/api/auth/verify-otp', (req, res) => {
   const {code, role} = req.body;
   const phone = normalizePhone(req.body.phone);
+  const attempts = otpAttempts.get(phone) || 0;
+  if (attempts >= OTP_MAX_ATTEMPTS) {
+    return res.status(429).json({error: 'Too many wrong attempts. Request a new code.'});
+  }
   if (!db.checkOtp(phone, code)) {
+    otpAttempts.set(phone, attempts + 1);
     return res.status(400).json({error: 'Invalid or expired code'});
   }
+  otpAttempts.delete(phone);
   db.clearOtp(phone);
   let user = db.findUserByPhone(phone);
   let isNew = false;
@@ -196,10 +240,21 @@ app.get('/api/rides', auth, (req, res) => {
 });
 
 app.post('/api/rides', auth, (req, res) => {
-  const {from, to, type, price, paymentMethod, fromLat, fromLng, toLat, toLng} = req.body;
+  const {from, to, type, price, paymentMethod, fromLat, fromLng, toLat, toLng, scheduledAt} = req.body;
   const fare = Number(price);
   if (!Number.isFinite(fare) || fare < 0) {
     return res.status(400).json({error: 'Invalid price'});
+  }
+  // Optional pre-booking: schedule a ride up to 7 days ahead
+  let scheduled = null;
+  if (scheduledAt) {
+    const ts = new Date(scheduledAt).getTime();
+    if (!Number.isFinite(ts)) return res.status(400).json({error: 'Invalid scheduledAt date'});
+    if (ts < Date.now()) return res.status(400).json({error: 'scheduledAt must be in the future'});
+    if (ts > Date.now() + 7 * 24 * 3600 * 1000) {
+      return res.status(400).json({error: 'Rides can be scheduled at most 7 days ahead'});
+    }
+    scheduled = new Date(ts).toISOString();
   }
   const user = db.findUserById(req.userId);
   if (paymentMethod === 'wallet') {
@@ -221,7 +276,8 @@ app.post('/api/rides', auth, (req, res) => {
     paymentMethod: paymentMethod || 'cash',
     driver: driver.name,
     driverInfo: driver,
-    status: 'matched',
+    status: scheduled ? 'scheduled' : 'matched',
+    scheduledAt: scheduled,
   });
   db.addTransaction({
     userId: req.userId,
@@ -257,10 +313,17 @@ app.get('/api/rides/:id/track', auth, (req, res) => {
   }
   const from = ride.fromCoords || {lat: 25.3208, lng: 51.531};
   const to = ride.toCoords || {lat: 25.2609, lng: 51.6138};
-  const elapsed = (Date.now() - new Date(ride.createdAt).getTime()) / 1000;
+  // Scheduled rides start their timeline at the scheduled time, not booking time
+  const anchor = new Date(ride.scheduledAt || ride.createdAt).getTime();
+  const elapsed = (Date.now() - anchor) / 1000;
 
   let status, progress, driverLocation, etaMinutes;
-  if (ride.status === 'completed' || elapsed >= PICKUP_AT + TRIP_SECONDS) {
+  if (elapsed < 0) {
+    status = 'scheduled';
+    progress = 0;
+    driverLocation = null;
+    etaMinutes = Math.ceil(-elapsed / 60) + Math.ceil(PICKUP_AT / 60);
+  } else if (ride.status === 'completed' || elapsed >= PICKUP_AT + TRIP_SECONDS) {
     status = 'completed';
     progress = 1;
     driverLocation = to;

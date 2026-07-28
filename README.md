@@ -20,7 +20,7 @@ npm start
 | `PORT` | `4000` | HTTP port |
 | `JWT_SECRET` | dev value | Sign/verify JWTs — **set a strong value in production** |
 | `DEV_MODE` | `true` | When true, OTP codes are returned in the API response (no SMS needed) |
-| `TWILIO_SID` / `TWILIO_TOKEN` / `TWILIO_FROM` | — | Optional: send real OTP SMS via Twilio (`npm i twilio`, then set `DEV_MODE=false`) |
+| `TWILIO_SID` / `TWILIO_TOKEN` / `TWILIO_FROM` | — | Optional: send real OTP SMS via Twilio's REST API (built-in `fetch`, no extra packages). Set these and `DEV_MODE=false` |
 
 ## Deploy (Render.com)
 
@@ -34,8 +34,8 @@ All authenticated endpoints require `Authorization: Bearer <token>`.
 ### Auth
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `/api/auth/request-otp` | `{phone}` | Qatari mobile (8 digits, starts 3/5/6/7; `+974` prefix accepted). In dev mode, response includes `devCode` |
-| POST | `/api/auth/verify-otp` | `{phone, code, role?}` | Returns `{token, user, isNew}`. New users get a 25 QAR welcome bonus |
+| POST | `/api/auth/request-otp` | `{phone}` | Qatari mobile (8 digits, starts 3/5/6/7; `+974` prefix accepted). In dev mode, response includes `devCode`. Rate-limited: 5 requests / phone / 15 min |
+| POST | `/api/auth/verify-otp` | `{phone, code, role?}` | Returns `{token, user, isNew}`. New users get a 25 QAR welcome bonus. 5 wrong attempts locks the code until re-requested |
 
 ### Profile
 | Method | Path | Body |
@@ -56,7 +56,7 @@ All authenticated endpoints require `Authorization: Bearer <token>`.
 | GET | `/api/ride-types` | — | Go / Comfort / Family XL / Business with QAR pricing (public) |
 | GET | `/api/rides/estimate` | `?type=go&distanceKm=8` | Fare + ETA estimate (respects minimum fare) |
 | GET | `/api/rides` | — | User's ride history |
-| POST | `/api/rides` | `{from, to, type, price, paymentMethod}` | Books a ride; `paymentMethod: "wallet"` debits the wallet |
+| POST | `/api/rides` | `{from, to, type, price, paymentMethod, scheduledAt?}` | Books a ride; `paymentMethod: "wallet"` debits the wallet. Pass `scheduledAt` (ISO, up to 7 days ahead) to pre-book — the ride stays `scheduled` and its tracking timeline starts at that time |
 | GET | `/api/rides/:id` | — | Single ride details |
 | GET | `/api/rides/:id/track` | — | Live tracking: simulated driver GPS, phase (`matched → arriving → in_progress → completed`), progress %, ETA. Poll every few seconds from the app |
 | POST | `/api/rides/:id/cancel` | — | Cancels; wallet payments are refunded |
