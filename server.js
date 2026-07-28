@@ -23,7 +23,7 @@ async function sendSms(phone, code) {
   try {
     const twilio = require('twilio')(TWILIO_SID, TWILIO_TOKEN);
     await twilio.messages.create({
-      to: phone.startsWith('+') ? phone : `+2${phone}`,
+      to: phone.startsWith('+') ? phone : `+974${phone}`,
       from: TWILIO_FROM,
       body: `Your Rahal Go verification code is ${code}`,
     });
@@ -32,6 +32,11 @@ async function sendSms(phone, code) {
     console.error('[SMS] send failed:', e.message);
     return false;
   }
+}
+
+// Normalize Qatari numbers to their 8-digit local form ("+974 5551 2345" -> "55512345")
+function normalizePhone(phone) {
+  return String(phone || '').replace(/^\+?974/, '').replace(/\D/g, '');
 }
 
 // ---- Auth middleware ----
@@ -54,12 +59,12 @@ function publicUser(u) {
   return {id, phone, role, name, email, city, language, rating, walletBalance, createdAt};
 }
 
-// ---- Ride types & pricing (EGP) ----
+// ---- Ride types & pricing (QAR) ----
 const RIDE_TYPES = [
-  {id: 'go', name: 'Go', description: 'Affordable everyday rides', base: 15, perKm: 4.5, seats: 4},
-  {id: 'comfort', name: 'Comfort', description: 'Newer cars, top drivers', base: 25, perKm: 6.5, seats: 4},
-  {id: 'xl', name: 'XL', description: 'Vans for up to 6 people', base: 35, perKm: 9, seats: 6},
-  {id: 'scooter', name: 'Scooter', description: 'Beat the traffic', base: 10, perKm: 3, seats: 1},
+  {id: 'go', name: 'Go', description: 'Affordable everyday rides', base: 10, perKm: 1.8, minFare: 20, seats: 4},
+  {id: 'comfort', name: 'Comfort', description: 'Newer cars, top drivers', base: 14, perKm: 2.4, minFare: 28, seats: 4},
+  {id: 'family', name: 'Family XL', description: 'SUVs and vans for up to 6', base: 18, perKm: 3.2, minFare: 35, seats: 6},
+  {id: 'business', name: 'Business', description: 'Premium cars, executive service', base: 30, perKm: 4.5, minFare: 60, seats: 4},
 ];
 
 function estimateFare(typeId, distanceKm) {
@@ -69,9 +74,9 @@ function estimateFare(typeId, distanceKm) {
     type: type.name,
     typeId: type.id,
     distanceKm: km,
-    price: Math.round(type.base + type.perKm * km),
-    currency: 'EGP',
-    etaMinutes: Math.max(3, Math.round(km * 2.5)),
+    price: Math.max(type.minFare, Math.round(type.base + type.perKm * km)),
+    currency: 'QAR',
+    etaMinutes: Math.max(3, Math.round(km * 1.8)),
   };
 }
 
@@ -82,9 +87,10 @@ app.get('/api/health', (req, res) => {
 
 // ---- Auth: request OTP ----
 app.post('/api/auth/request-otp', async (req, res) => {
-  const {phone} = req.body;
-  if (!phone || phone.length < 8) {
-    return res.status(400).json({error: 'Valid phone number required'});
+  // Qatari mobile numbers are 8 digits (starting 3, 5, 6, or 7), optionally with +974
+  const phone = normalizePhone(req.body.phone);
+  if (phone.length !== 8 || !'3567'.includes(phone[0])) {
+    return res.status(400).json({error: 'Valid Qatari phone number required (8 digits)'});
   }
   const code = String(Math.floor(100000 + Math.random() * 900000));
   db.setOtp(phone, code);
@@ -100,7 +106,8 @@ app.post('/api/auth/request-otp', async (req, res) => {
 
 // ---- Auth: verify OTP ----
 app.post('/api/auth/verify-otp', (req, res) => {
-  const {phone, code, role} = req.body;
+  const {code, role} = req.body;
+  const phone = normalizePhone(req.body.phone);
   if (!db.checkOtp(phone, code)) {
     return res.status(400).json({error: 'Invalid or expired code'});
   }
@@ -111,8 +118,8 @@ app.post('/api/auth/verify-otp', (req, res) => {
     isNew = true;
     user = db.createUser({phone, role: role || 'rider'});
     // Seed a little demo history so the app feels alive
-    db.addTransaction({userId: user.id, icon: 'gift', title: 'Welcome bonus', amount: 30});
-    db.updateUser(user.id, {walletBalance: 30});
+    db.addTransaction({userId: user.id, icon: 'gift', title: 'Welcome bonus', amount: 25});
+    db.updateUser(user.id, {walletBalance: 25});
     user = db.findUserById(user.id);
   }
   const token = jwt.sign({userId: user.id}, JWT_SECRET, {expiresIn: '30d'});
@@ -164,10 +171,10 @@ app.get('/api/rides/estimate', auth, (req, res) => {
 
 // ---- Rides ----
 const DEMO_DRIVERS = [
-  {name: 'Ahmed Hassan', car: 'Toyota Corolla', plate: 'س ط ب 4821', rating: 4.9},
-  {name: 'Mohamed Salah', car: 'Hyundai Elantra', plate: 'م ن ق 1573', rating: 4.8},
-  {name: 'Karim Adel', car: 'Kia Cerato', plate: 'د و ر 9264', rating: 4.7},
-  {name: 'Omar Farouk', car: 'Nissan Sunny', plate: 'ج ل ع 3417', rating: 4.9},
+  {name: 'Ahmed Al-Kuwari', car: 'Toyota Camry', plate: '248 315', rating: 4.9},
+  {name: 'Mohamed Al-Sulaiti', car: 'Nissan Altima', plate: '512 947', rating: 4.8},
+  {name: 'Khalid Al-Marri', car: 'Hyundai Sonata', plate: '873 106', rating: 4.7},
+  {name: 'Yousef Al-Emadi', car: 'GMC Yukon', plate: '634 758', rating: 4.9},
 ];
 
 app.get('/api/rides', auth, (req, res) => {
@@ -190,8 +197,8 @@ app.post('/api/rides', auth, (req, res) => {
   const driver = DEMO_DRIVERS[Math.floor(Math.random() * DEMO_DRIVERS.length)];
   const ride = db.createRide({
     userId: req.userId,
-    from: from || 'Maadi, Cairo',
-    to: to || 'Cairo International Airport',
+    from: from || 'West Bay, Doha',
+    to: to || 'Hamad International Airport',
     type: type || 'Comfort',
     price: fare,
     paymentMethod: paymentMethod || 'cash',
@@ -260,6 +267,50 @@ app.post('/api/rides/:id/rate', auth, (req, res) => {
   }
   const updated = db.updateRide(ride.id, req.userId, {rating, comment: req.body.comment || ''});
   res.json({ride: updated});
+});
+
+// ---- Saved places ----
+app.get('/api/places', auth, (req, res) => {
+  res.json({places: db.placesForUser(req.userId)});
+});
+
+app.post('/api/places', auth, (req, res) => {
+  const {label, address} = req.body;
+  if (!label || !address) {
+    return res.status(400).json({error: 'label and address are required'});
+  }
+  const place = db.addPlace({userId: req.userId, label, address});
+  res.json({place, places: db.placesForUser(req.userId)});
+});
+
+app.delete('/api/places/:id', auth, (req, res) => {
+  if (!db.removePlace(req.params.id, req.userId)) {
+    return res.status(404).json({error: 'Place not found'});
+  }
+  res.json({places: db.placesForUser(req.userId)});
+});
+
+// ---- Promo codes ----
+// One-time wallet-credit promos (QAR). Add/adjust codes here.
+const PROMO_CODES = {
+  RAHAL25: {credit: 25, title: 'Promo RAHAL25'},
+  WELCOMEQA: {credit: 15, title: 'Promo WELCOMEQA'},
+  DOHA10: {credit: 10, title: 'Promo DOHA10'},
+};
+
+app.post('/api/promo/redeem', auth, (req, res) => {
+  const code = String(req.body.code || '').trim().toUpperCase();
+  const promo = PROMO_CODES[code];
+  if (!promo) return res.status(400).json({error: 'Invalid promo code'});
+  if (db.hasRedeemedPromo(req.userId, code)) {
+    return res.status(400).json({error: 'Promo code already used'});
+  }
+  db.redeemPromo(req.userId, code);
+  const user = db.findUserById(req.userId);
+  const newBalance = user.walletBalance + promo.credit;
+  db.updateUser(req.userId, {walletBalance: newBalance});
+  db.addTransaction({userId: req.userId, icon: 'gift', title: promo.title, amount: promo.credit});
+  res.json({credit: promo.credit, balance: newBalance});
 });
 
 app.listen(PORT, '0.0.0.0', () => {
