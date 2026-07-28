@@ -61,11 +61,20 @@ function publicUser(u) {
 
 // ---- Ride types & pricing (QAR) ----
 const RIDE_TYPES = [
-  {id: 'go', name: 'Go', description: 'Affordable everyday rides', base: 10, perKm: 1.8, minFare: 20, seats: 4},
-  {id: 'comfort', name: 'Comfort', description: 'Newer cars, top drivers', base: 14, perKm: 2.4, minFare: 28, seats: 4},
-  {id: 'family', name: 'Family XL', description: 'SUVs and vans for up to 6', base: 18, perKm: 3.2, minFare: 35, seats: 6},
-  {id: 'business', name: 'Business', description: 'Premium cars, executive service', base: 30, perKm: 4.5, minFare: 60, seats: 4},
+  {id: 'go', name: 'Go', nameAr: 'جو', description: 'Affordable everyday rides', descriptionAr: 'رحلات يومية بأسعار مناسبة', base: 10, perKm: 1.8, minFare: 20, seats: 4},
+  {id: 'comfort', name: 'Comfort', nameAr: 'كمفورت', description: 'Newer cars, top drivers', descriptionAr: 'سيارات أحدث وأفضل السائقين', base: 14, perKm: 2.4, minFare: 28, seats: 4},
+  {id: 'family', name: 'Family XL', nameAr: 'عائلي XL', description: 'SUVs and vans for up to 6', descriptionAr: 'سيارات دفع رباعي وفانات حتى ٦ ركاب', base: 18, perKm: 3.2, minFare: 35, seats: 6},
+  {id: 'business', name: 'Business', nameAr: 'أعمال', description: 'Premium cars, executive service', descriptionAr: 'سيارات فاخرة وخدمة تنفيذية', base: 30, perKm: 4.5, minFare: 60, seats: 4},
 ];
+
+const STATUS_AR = {
+  requested: 'تم الطلب',
+  matched: 'تم إيجاد سائق',
+  arriving: 'السائق في الطريق إليك',
+  in_progress: 'الرحلة جارية',
+  completed: 'اكتملت الرحلة',
+  cancelled: 'أُلغيت الرحلة',
+};
 
 function estimateFare(typeId, distanceKm) {
   const type = RIDE_TYPES.find(t => t.id === typeId) || RIDE_TYPES[0];
@@ -177,12 +186,17 @@ const DEMO_DRIVERS = [
   {name: 'Yousef Al-Emadi', car: 'GMC Yukon', plate: '634 758', rating: 4.9},
 ];
 
+// Attach Arabic status label for the app UI
+function rideView(ride) {
+  return ride ? {...ride, statusAr: STATUS_AR[ride.status] || ride.status} : null;
+}
+
 app.get('/api/rides', auth, (req, res) => {
-  res.json({rides: db.ridesForUser(req.userId)});
+  res.json({rides: db.ridesForUser(req.userId).map(rideView)});
 });
 
 app.post('/api/rides', auth, (req, res) => {
-  const {from, to, type, price, paymentMethod} = req.body;
+  const {from, to, type, price, paymentMethod, fromLat, fromLng, toLat, toLng} = req.body;
   const fare = Number(price);
   if (!Number.isFinite(fare) || fare < 0) {
     return res.status(400).json({error: 'Invalid price'});
@@ -199,6 +213,9 @@ app.post('/api/rides', auth, (req, res) => {
     userId: req.userId,
     from: from || 'West Bay, Doha',
     to: to || 'Hamad International Airport',
+    // Default coords: West Bay -> Hamad International Airport
+    fromCoords: {lat: Number(fromLat) || 25.3208, lng: Number(fromLng) || 51.531},
+    toCoords: {lat: Number(toLat) || 25.2609, lng: Number(toLng) || 51.6138},
     type: type || 'Comfort',
     price: fare,
     paymentMethod: paymentMethod || 'cash',
@@ -212,13 +229,80 @@ app.post('/api/rides', auth, (req, res) => {
     title: `${ride.type} Ride • ${ride.from} → ${ride.to}`,
     amount: -ride.price,
   });
-  res.json({ride});
+  res.json({ride: rideView(ride)});
 });
 
 app.get('/api/rides/:id', auth, (req, res) => {
   const ride = db.findRide(req.params.id, req.userId);
   if (!ride) return res.status(404).json({error: 'Ride not found'});
-  res.json({ride});
+  res.json({ride: rideView(ride)});
+});
+
+// ---- Live tracking (simulated) ----
+// The demo "trip" plays out in real time from booking:
+//   0-30s   matched   (driver assigned)
+//   30-120s arriving  (driver drives to the pickup point)
+//   120s+   in_progress (pickup -> dropoff over 5 minutes), then completed
+const ARRIVE_AT = 30, PICKUP_AT = 120, TRIP_SECONDS = 300;
+
+function lerp(a, b, t) {
+  return a + (b - a) * Math.min(1, Math.max(0, t));
+}
+
+app.get('/api/rides/:id/track', auth, (req, res) => {
+  let ride = db.findRide(req.params.id, req.userId);
+  if (!ride) return res.status(404).json({error: 'Ride not found'});
+  if (ride.status === 'cancelled') {
+    return res.json({ride: rideView(ride), tracking: null});
+  }
+  const from = ride.fromCoords || {lat: 25.3208, lng: 51.531};
+  const to = ride.toCoords || {lat: 25.2609, lng: 51.6138};
+  const elapsed = (Date.now() - new Date(ride.createdAt).getTime()) / 1000;
+
+  let status, progress, driverLocation, etaMinutes;
+  if (ride.status === 'completed' || elapsed >= PICKUP_AT + TRIP_SECONDS) {
+    status = 'completed';
+    progress = 1;
+    driverLocation = to;
+    etaMinutes = 0;
+  } else if (elapsed >= PICKUP_AT) {
+    status = 'in_progress';
+    progress = (elapsed - PICKUP_AT) / TRIP_SECONDS;
+    driverLocation = {lat: lerp(from.lat, to.lat, progress), lng: lerp(from.lng, to.lng, progress)};
+    etaMinutes = Math.ceil((TRIP_SECONDS - (elapsed - PICKUP_AT)) / 60);
+  } else if (elapsed >= ARRIVE_AT) {
+    status = 'arriving';
+    progress = 0;
+    // Driver approaches the pickup point from a nearby offset
+    const t = (elapsed - ARRIVE_AT) / (PICKUP_AT - ARRIVE_AT);
+    driverLocation = {lat: lerp(from.lat + 0.012, from.lat, t), lng: lerp(from.lng - 0.012, from.lng, t)};
+    etaMinutes = Math.ceil((PICKUP_AT - elapsed) / 60);
+  } else {
+    status = 'matched';
+    progress = 0;
+    driverLocation = {lat: from.lat + 0.012, lng: from.lng - 0.012};
+    etaMinutes = Math.ceil(PICKUP_AT / 60);
+  }
+
+  // Persist status transitions so ride history stays truthful
+  if (status !== ride.status) {
+    const patch = {status};
+    if (status === 'completed') patch.completedAt = new Date().toISOString();
+    ride = db.updateRide(ride.id, req.userId, patch);
+  }
+
+  res.json({
+    ride: rideView(ride),
+    tracking: {
+      status,
+      statusAr: STATUS_AR[status],
+      driverLocation,
+      pickup: from,
+      dropoff: to,
+      progress: Math.round(progress * 100) / 100,
+      etaMinutes,
+    },
+  });
 });
 
 app.post('/api/rides/:id/cancel', auth, (req, res) => {
@@ -239,7 +323,7 @@ app.post('/api/rides/:id/cancel', auth, (req, res) => {
     });
   }
   const updated = db.updateRide(ride.id, req.userId, {status: 'cancelled'});
-  res.json({ride: updated});
+  res.json({ride: rideView(updated)});
 });
 
 app.post('/api/rides/:id/complete', auth, (req, res) => {
@@ -252,7 +336,7 @@ app.post('/api/rides/:id/complete', auth, (req, res) => {
     status: 'completed',
     completedAt: new Date().toISOString(),
   });
-  res.json({ride: updated});
+  res.json({ride: rideView(updated)});
 });
 
 app.post('/api/rides/:id/rate', auth, (req, res) => {
@@ -266,7 +350,7 @@ app.post('/api/rides/:id/rate', auth, (req, res) => {
     return res.status(400).json({error: 'Rating must be between 1 and 5'});
   }
   const updated = db.updateRide(ride.id, req.userId, {rating, comment: req.body.comment || ''});
-  res.json({ride: updated});
+  res.json({ride: rideView(updated)});
 });
 
 // ---- Saved places ----
