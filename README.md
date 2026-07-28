@@ -1,7 +1,16 @@
-# Rahal Go — Backend API
+# Rahal Go — Platform
 
-Node.js/Express backend for the Rahal Go ride-hailing app (Qatar 🇶🇦). Phone + OTP auth with JWT,
-wallet in QAR with transactions, promo codes, saved places, and a full ride lifecycle
+Complete demo platform for Rahal Go, a Qatar 🇶🇦 ride-hailing service. One Node.js/Express
+server hosts the API **and** all three web surfaces:
+
+| Surface | URL | What it is |
+|---|---|---|
+| Marketing website | `/` | Futuristic landing page with 3D animated hero, live ride tiers, EN/AR |
+| Rider app | `/app/` | Full booking experience: OTP login, live GPS tracking map, wallet, promos, trips |
+| Operations dashboard | `/admin/` | Mission-control: live fleet map, KPIs, charts, rides & riders tables |
+
+Backend: phone + OTP auth with JWT, wallet in QAR with transactions, promo codes, saved
+places, scheduled rides, live tracking simulation, and a full ride lifecycle
 (book → cancel/complete → rate). Data is stored in a simple JSON file (`data.json`) —
 zero native dependencies, deploy anywhere.
 
@@ -21,6 +30,7 @@ npm start
 | `JWT_SECRET` | dev value | Sign/verify JWTs — **set a strong value in production** |
 | `DEV_MODE` | `true` | When true, OTP codes are returned in the API response (no SMS needed) |
 | `TWILIO_SID` / `TWILIO_TOKEN` / `TWILIO_FROM` | — | Optional: send real OTP SMS via Twilio's REST API (built-in `fetch`, no extra packages). Set these and `DEV_MODE=false` |
+| `ADMIN_KEY` | `rahal-admin-dev` | Key for the operations dashboard and `/api/admin/*` — **set a strong value in production** |
 
 ## Deploy (Render.com)
 
@@ -69,6 +79,15 @@ All authenticated endpoints require `Authorization: Bearer <token>`.
 | GET | `/api/places` | — |
 | POST | `/api/places` | `{label, address}` (e.g. `Home`, `The Pearl, Doha`) |
 | DELETE | `/api/places/:id` | — |
+
+### Admin (requires `x-admin-key` header)
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/api/admin/login` | Validate a key: `{key}` → `{ok}` |
+| GET | `/api/admin/stats` | KPIs: users, rides by status, revenue, wallet float, avg rating, 7-day ride/revenue series |
+| GET | `/api/admin/rides?limit=50` | Recent rides with rider phone/name |
+| GET | `/api/admin/users` | All riders |
+| GET | `/api/admin/live` | Live fleet: computed GPS position, phase, progress and ETA for every ride on the road |
 
 ### Health
 `GET /api/health` → `{ok: true, service: "Rahal Go API", users: <count>}`
